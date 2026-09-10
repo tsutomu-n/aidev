@@ -1,10 +1,25 @@
+# Python bytecode and local virtual environments
 __pycache__/
 *.py[cod]
-verification/
-.venv/
+/.venv/
+/venv/
+
+# Local environment values; reviewed templates may be shared
 .env
 .env.*
-.aidev/
-.serena/
-.code-review-graph/
-graphify-out/
+!.env.example
+
+# Machine-specific acceptance runs and generated test repositories
+/verification/
+
+# aidev state, backups and provider logs
+/.aidev/
+
+# Provider runtime and indexes; keep shared project configuration visible
+/.serena/runtime/
+/.serena/cache/
+/.serena/memories/
+/.serena/logs/
+/.serena/project.local.yml
+/.code-review-graph/
+/graphify-out/
