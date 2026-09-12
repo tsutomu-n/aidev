@@ -28,7 +28,7 @@ def main():
     project_path = root / ".serena/project.yml"
     if project_path.exists():
         # Pure parsing, unlike ProjectConfig.load which can migrate files.
-        project = yaml.load(project_path.read_text())
+        project = yaml.load(project_path.read_text(encoding="utf-8"))
         full, _ = ProjectConfig._load_yaml_dict(str(project_path))
         ProjectConfig._from_dict(full, local_override_keys=[])
     else:
@@ -37,7 +37,7 @@ def main():
             save_to_disk=False,
         )._to_yaml_dict()
     runtime_path = root / ".serena/runtime/serena_config.yml"
-    runtime = yaml.load((runtime_path if runtime_path.exists() else Path(SERENA_CONFIG_TEMPLATE_FILE)).read_text())
+    runtime = yaml.load((runtime_path if runtime_path.exists() else Path(SERENA_CONFIG_TEMPLATE_FILE)).read_text(encoding="utf-8"))
     print(json.dumps({"project": project, "runtime": runtime}))
 
 

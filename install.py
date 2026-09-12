@@ -2,7 +2,6 @@
 """Install/upgrade a local aidev bundle; retain previous releases and user edits."""
 import argparse
 import ast
-import fcntl
 import hashlib
 import json
 import os
@@ -12,10 +11,12 @@ import sys
 import tempfile
 import uuid
 
+from platform_support import WINDOWS, data_home, directory_lock, is_link
+
 SOURCE = Path(__file__).resolve().parent
-TARGET = Path.home() / ".local/share/aidev"
-ENTRY = Path.home() / ".local/bin/aidev"
-FILES = ("aidev.py", "provider_probe.py", "provider_build.py", "README.md")
+TARGET = data_home()
+ENTRY = TARGET / "bin/aidev.cmd" if WINDOWS else Path.home() / ".local/bin/aidev"
+FILES = ("aidev.py", "provider_probe.py", "provider_build.py", "platform_support.py", "README.md", "USER_GUIDE.md", "TECHNICAL.md", "STATUS.md", "WINDOWS.md")
 LEGACY_HASHES = {
     "aidev.py": "fe6b2ed14922df68e63be57dbf5362e5e2f36adb575a946ba9f63d9b1b23876b",
     "provider_probe.py": "319a6b845c49ff6ec4b74bfca2b64f1eea12f58afdb88f66125b5dc5040580bd",
@@ -27,7 +28,7 @@ def hashes(folder, names):
     result = {}
     for name in names:
         path = folder / name
-        if path.is_symlink() or not path.is_file():
+        if is_link(path) or not path.is_file():
             raise ValueError(f"通常の配布ファイルではありません: {path}")
         result[name] = hashlib.sha256(path.read_bytes()).hexdigest()
     return result
@@ -37,13 +38,13 @@ def stage_release(folder, names):
     expected = hashes(folder, names)
     ident = hashlib.sha256(json.dumps(expected, sort_keys=True).encode()).hexdigest()[:20]
     releases = TARGET / "releases"
-    if releases.is_symlink():
+    if is_link(releases):
         raise ValueError(f"symlinkの配置先は使用しません: {releases}")
     releases.mkdir(mode=0o700, exist_ok=True)
     release = releases / ident
     manifest = {"application": "aidev", "schema_version": 1, "files": expected}
     if release.exists() or release.is_symlink():
-        if release.is_symlink() or hashes(release, names) != expected or json.loads((release / "installation.json").read_text()) != manifest:
+        if is_link(release) or hashes(release, names) != expected or json.loads((release / "installation.json").read_text(encoding="utf-8")) != manifest:
             raise ValueError(f"既存releaseが変更されています: {release}")
         return release
     staging = Path(tempfile.mkdtemp(prefix=".staging-", dir=releases))
@@ -52,10 +53,10 @@ def stage_release(folder, names):
             shutil.copyfile(folder / name, staging / name)
             os.chmod(staging / name, 0o700 if name == "aidev.py" else 0o600)
             if name.endswith(".py"):
-                ast.parse((staging / name).read_text(), filename=name)
+                ast.parse((staging / name).read_text(encoding="utf-8"), filename=name)
         if hashes(staging, names) != expected:
             raise ValueError("コピー中にsourceが変更されました")
-        (staging / "installation.json").write_text(json.dumps(manifest, indent=2) + "\n")
+        (staging / "installation.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
         (staging / "installation.json").chmod(0o600)
         os.rename(staging, release)
     finally:
@@ -75,17 +76,42 @@ def replace_link(path, target):
             temporary.unlink()
 
 
+def windows_launcher(release):
+    # ASCII batch file: the installation path (including Japanese and spaces)
+    # is obtained by cmd itself; no hardcoded codepage-dependent path text.
+    ident = release.name
+    if len(ident) != 20 or any(c not in "0123456789abcdef" for c in ident):
+        raise ValueError("不正なrelease識別子です")
+    return ("@echo off\r\nsetlocal DisableDelayedExpansion\r\n"
+            f'py -3 -X utf8 "%~dp0..\\releases\\{ident}\\aidev.py" %*\r\n'
+            "exit /b %errorlevel%\r\n").encode("ascii")
+
+
 def active_release():
-    if not ENTRY.is_symlink():
+    if WINDOWS:
+        if is_link(ENTRY) or not ENTRY.is_file() or ENTRY.stat().st_nlink > 1:
+            raise ValueError(f"aidev管理外の既存コマンドです: {ENTRY}")
+        raw = ENTRY.read_bytes()
+        import re
+        match = re.search(rb"releases\\([0-9a-f]{20})\\aidev.py", raw)
+        if not match:
+            raise ValueError("管理外のWindowsランチャーです")
+        active = TARGET / "releases" / match[1].decode("ascii") / "aidev.py"
+        if raw != windows_launcher(active.parent):
+            raise ValueError("Windowsランチャーに利用者の変更があります")
+    elif not ENTRY.is_symlink():
         raise ValueError(f"aidev管理外の既存コマンドです: {ENTRY}")
-    active = ENTRY.resolve()
+    else:
+        active = ENTRY.resolve()
     if active == TARGET / "aidev.py" and not (TARGET / "aidev.py").is_symlink():
         if hashes(TARGET, LEGACY_HASHES) != LEGACY_HASHES:
             raise ValueError("旧版のファイルに変更があります。上書きしません。")
         return stage_release(TARGET, tuple(LEGACY_HASHES))
     if active.name != "aidev.py" or active.parent.parent != TARGET / "releases":
         raise ValueError(f"aidev管理外の参照先です: {ENTRY}")
-    manifest = json.loads((active.parent / "installation.json").read_text())
+    if is_link(active.parent) or is_link(active.parent.parent):
+        raise ValueError("リンクされたreleaseは使用しません")
+    manifest = json.loads((active.parent / "installation.json").read_text(encoding="utf-8"))
     files = manifest.get("files", {})
     if manifest.get("application") != "aidev" or manifest.get("schema_version") != 1 or not files or not set(files).issubset(FILES):
         raise ValueError("既存releaseのmanifestを確認できません")
@@ -97,49 +123,68 @@ def active_release():
 def install(upgrade=False):
     if sys.version_info < (3, 11):
         raise ValueError("Python 3.11以降が必要です")
+    if WINDOWS and not shutil.which("py"):
+        raise ValueError("Python 3.11以降とWindows Python Launcher (py -3)が必要です")
     for path in (TARGET.parent, ENTRY.parent):
-        if not path.is_dir() or path.is_symlink():
+        for parent in (path, *path.parents):
+            if is_link(parent):
+                raise ValueError(f"リンクされた配置先は使用しません: {parent}")
+        path.mkdir(parents=True, exist_ok=True)
+        if not path.is_dir() or is_link(path):
             raise ValueError(f"通常directoryの配置先を用意してください: {path}")
-    existed = TARGET.exists() or TARGET.is_symlink() or ENTRY.exists() or ENTRY.is_symlink() or shutil.which("aidev")
+    existed = ENTRY.exists() or is_link(ENTRY) or (TARGET / "releases").exists() or (TARGET / "aidev.py").exists() or shutil.which("aidev")
     if existed and not upgrade:
         raise ValueError("aidevの既存コマンド/配置先があります。更新には --upgrade を指定してください。")
-    if TARGET.is_symlink() or (TARGET.exists() and not TARGET.is_dir()):
+    if is_link(TARGET) or (TARGET.exists() and not TARGET.is_dir()):
         raise ValueError(f"管理directoryを確認できません: {TARGET}")
     if not existed:
-        TARGET.mkdir(mode=0o700)
+        TARGET.mkdir(mode=0o700, exist_ok=True)
     elif not TARGET.is_dir():
         raise ValueError("既存コマンドはこのインストーラーの管理外です")
-    fd = os.open(TARGET, os.O_RDONLY | os.O_DIRECTORY)
-    try:
-        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        entry_before = os.readlink(ENTRY) if ENTRY.is_symlink() else None
+    with directory_lock(TARGET):
+        entry_before = ENTRY.read_bytes() if WINDOWS and ENTRY.is_file() else os.readlink(ENTRY) if ENTRY.is_symlink() else None
         previous = active_release() if existed else None
         # Stable links must preserve user changes too.
-        for name in FILES:
+        for name in (() if WINDOWS else FILES):
             path = TARGET / name
             if path.exists() or path.is_symlink():
-                managed = previous is not None and name in json.loads((previous / "installation.json").read_text())["files"]
+                managed = previous is not None and name in json.loads((previous / "installation.json").read_text(encoding="utf-8"))["files"]
                 if not managed or not path.is_file() or path.read_bytes() != (previous / name).read_bytes():
                     raise ValueError(f"管理pathに利用者の変更があります: {path}")
         release = stage_release(SOURCE, FILES)
         if previous == release:
             print("同じ版がインストール済みです。変更はありません。")
             return release
-        if (os.readlink(ENTRY) if ENTRY.is_symlink() else None) != entry_before or (entry_before is None and ENTRY.exists()):
+        entry_now = ENTRY.read_bytes() if WINDOWS and ENTRY.is_file() else os.readlink(ENTRY) if ENTRY.is_symlink() else None
+        if entry_now != entry_before or (entry_before is None and ENTRY.exists()):
             raise ValueError("準備中にコマンドの参照先が変更されました")
         # Switch the command to the complete release in one atomic operation.
-        replace_link(ENTRY, release / "aidev.py")
-        for name in FILES:
-            replace_link(TARGET / name, release / name)
+        if WINDOWS:
+            fd, temporary = tempfile.mkstemp(prefix=".aidev-", dir=ENTRY.parent)
+            try:
+                with os.fdopen(fd, "wb") as stream:
+                    stream.write(windows_launcher(release))
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                os.replace(temporary, ENTRY)
+            finally:
+                if os.path.exists(temporary):
+                    os.unlink(temporary)
+        else:
+            replace_link(ENTRY, release / "aidev.py")
+            for name in FILES:
+                replace_link(TARGET / name, release / name)
         print(f"インストール完了: {ENTRY}")
         if previous:
             print(f"旧版を保持: {previous}")
         return release
-    finally:
-        os.close(fd)
 
 
 def main(argv=None):
+    if WINDOWS:
+        for stream in (sys.stdout, sys.stderr):
+            if hasattr(stream, "reconfigure"):
+                stream.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--upgrade", action="store_true", help="自分の旧版だけを更新し、旧releaseを保持")
     args = parser.parse_args(argv)

@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Ubuntu用のrepo-localコード解析初期化。Python 3.11+ / 標準ライブラリ。"""
+"""Windows / Ubuntuのrepo-localコード解析初期化。Python 3.11+。"""
 from __future__ import annotations
 
 import argparse
 from contextlib import closing, contextmanager
-import fcntl
 import fnmatch
 import hashlib
 import json
@@ -13,7 +12,6 @@ from pathlib import Path
 import pickletools
 import re
 import shutil
-import signal
 import sqlite3
 import stat
 import subprocess
@@ -22,7 +20,9 @@ import tempfile
 import time
 import tomllib
 
-VERSION = "0.1.1"
+from platform_support import WINDOWS, child_process, data_home, directory_lock, is_link, stop_process
+
+VERSION = "0.2.0"
 BUNDLE_DIR = Path(__file__).resolve().parent
 PROVIDERS = {"serena": ("serena", "1.7.0"), "graphify": ("graphify", "0.9.55"), "crg": ("code-review-graph", "2.3.8")}
 CAPS = {"symbol_semantics": ["serena"], "architecture_relationships": ["graphify"], "change_impact": ["crg"]}
@@ -52,7 +52,7 @@ def env_for(root):
     # Do not inject repository Python modules into installed CLI processes.
     for name in ("PYTHONPATH", "PYTHONHOME"):
         env.pop(name, None)
-    env.update(SERENA_HOME=str(root / ".serena/runtime"), CRG_PARSE_WORKERS="2", GRAPHIFY_NO_TIPS="1")
+    env.update(SERENA_HOME=str(root / ".serena/runtime"), CRG_PARSE_WORKERS="2", GRAPHIFY_NO_TIPS="1", PYTHONIOENCODING="utf-8", PYTHONUTF8="1")
     return env
 
 
@@ -60,28 +60,25 @@ def run(argv, root, timeout=30, log=None):
     """No shell; terminate the entire child process group on timeout/interruption."""
     with tempfile.TemporaryFile() as output:
         interrupted = False
-        with subprocess.Popen([str(x) for x in argv], cwd=root, env=env_for(root), stdin=subprocess.DEVNULL,
-                              stdout=output, stderr=subprocess.STDOUT, start_new_session=True) as proc:
-            try:
-                code = proc.wait(timeout=timeout)
-            except (subprocess.TimeoutExpired, KeyboardInterrupt):
-                interrupted = True
+        launch_error = None
+        try:
+            with child_process([str(x) for x in argv], root, env_for(root), output) as proc:
                 try:
-                    os.killpg(proc.pid, signal.SIGTERM)
-                except ProcessLookupError:
-                    pass
-                try:
-                    proc.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    try:
-                        os.killpg(proc.pid, signal.SIGKILL)
-                    except ProcessLookupError:
-                        pass
-                    proc.wait()
+                    code = proc.wait(timeout=timeout)
+                except (subprocess.TimeoutExpired, KeyboardInterrupt):
+                    interrupted = True
+                    stop_process(proc)
+        except OSError as exc:
+            launch_error = exc
+        except KeyboardInterrupt:
+            interrupted = True
         output.seek(0)
         raw = output.read()
     if log is not None:
         atomic(log, raw)
+    if launch_error is not None:
+        detail = f" ログ: {log}" if log else ""
+        raise Problem(f"子プロセスを安全に起動・終了できません: {launch_error}.{detail}") from launch_error
     if interrupted:
         detail = f" ログ: {log}" if log else ""
         raise Problem(f"処理を中断しました: {Path(str(argv[0])).name}（上限 {timeout} 秒）。再実行できます。{detail}")
@@ -108,13 +105,15 @@ def repo_root(cwd):
 
 def safe_path(root, relative):
     path = root / relative
+    if Path(relative).is_absolute() or Path(relative).drive:
+        raise Problem("Repo外のpathは使用できません")
     current = root
     for part in Path(relative).parts:
         if part in ("..", "/"):
             raise Problem("Repo外のpathは使用できません")
         current /= part
-        if current.is_symlink():
-            raise Problem(f"symlinkの設定・出力先は変更しません: {current}")
+        if is_link(current):
+            raise Problem(f"symlink/reparse pointの設定・出力先は変更しません: {current}")
     if path.exists() and path.is_file() and path.stat().st_nlink > 1:
         raise Problem(f"hardlinkの設定は変更しません: {path}")
     return path
@@ -189,6 +188,11 @@ def foundation(root):
     for name in ("CRG_REPO_ROOT", "CRG_DATA_DIR", "CRG_HOME", "GRAPHIFY_OUT", "GRAPHIFY_FORCE"):
         if os.environ.get(name):
             raise Problem(f"{name} の環境overrideがあります。現在のshellで解除してから再実行してください。")
+    config = data_home() / "foundation.json"
+    if config.exists() or is_link(config):
+        return registered_foundation(root, config)
+    if WINDOWS:
+        raise Problem(f"provider環境が未登録です。aidev setup --help を確認してください: {config}")
     catalog = Path.home() / ".local/share/dev-capabilities/core/catalog.py"
     if not catalog.is_file():
         raise Problem(f"共通基盤がありません: {catalog}")
@@ -208,11 +212,99 @@ def foundation(root):
     return bins
 
 
-def probe(bins, provider, root, languages=()):
-    python = Path(bins[provider]).resolve().parent / "python"
+class ProviderBins(dict):
+    def __init__(self, records):
+        super().__init__((p, r["command"]) for p, r in records.items())
+        self.pythons = {p: r["python"] for p, r in records.items()}
+
+
+def provider_python(bins, provider):
+    if isinstance(bins, ProviderBins):
+        return Path(bins.pythons[provider])
+    python = Path(bins[provider]).resolve().parent / ("python.exe" if WINDOWS else "python")
     if not python.is_file():
-        raise Problem(f"uv tool環境のPythonがありません: {python}")
-    return json.loads(run([python, "-B", "-I", BUNDLE_DIR / "provider_probe.py", provider, root, json.dumps(list(languages))], root))
+        raise Problem(f"provider環境のPythonがありません。aidev setupで明示指定できます: {python}")
+    return python
+
+
+def check_provider_version(provider, binary, root):
+    name, version = PROVIDERS[provider]
+    actual = run([binary, "--version"], root).strip()
+    if not re.search(r"(?<![\d.])" + re.escape(version) + r"(?![\d.])", actual):
+        raise Problem(f"{name} はこの版で未検証です（必要: {version}）。自動更新は行いません。")
+
+
+def registered_foundation(root, config):
+    if any(is_link(p) for p in (config, *config.parents)):
+        raise Problem(f"リンクされたprovider登録は使用しません: {config}")
+    data = json.loads(config.read_text(encoding="utf-8"))
+    if (not isinstance(data, dict) or type(data.get("schema_version")) is not int or data["schema_version"] != 1
+            or data.get("approved") is not True or not isinstance(data.get("providers"), dict)
+            or set(data["providers"]) != set(PROVIDERS)):
+        raise Problem("aidev専用のprovider承認登録を確認できません")
+    records = data["providers"]
+    for provider, record in records.items():
+        if not isinstance(record, dict) or record.get("version") != PROVIDERS[provider][1]:
+            raise Problem(f"provider登録の版が異なります: {provider}")
+        for key in ("command", "python"):
+            path = Path(record[key])
+            if not path.is_absolute() or not path.is_file() or path.resolve().is_relative_to(root):
+                raise Problem(f"provider実行ファイルが不正またはRepo内です: {path}")
+            if digest(path.read_bytes()) != record.get(key + "_sha256"):
+                raise Problem(f"provider実行ファイルが登録後に変更されました: {path}")
+        check_provider_version(provider, record["command"], root)
+    return ProviderBins(records)
+
+
+def setup_foundation(pythons, approve=False, replace=False):
+    # These explicit paths are the user's execution scope. Never discover or
+    # install code from a repository or silently approve PATH candidates.
+    records = {}
+    root = Path.home()
+    for provider, python in pythons.items():
+        if not python.is_absolute() or not python.is_file():
+            raise Problem(f"Pythonの実在する絶対パスを指定してください: {python}")
+        binary = python.parent / (PROVIDERS[provider][0] + (".exe" if WINDOWS else ""))
+        if not binary.is_file():
+            raise Problem(f"同じprovider環境のCLIがありません: {binary}")
+        record = {"python": str(python), "command": str(binary), "version": PROVIDERS[provider][1]}
+        before = {key + "_sha256": digest(Path(record[key]).read_bytes()) for key in ("python", "command")}
+        check_provider_version(provider, binary, root)
+        # Confirm the specified interpreter imports the matching distribution.
+        distribution = {"serena": "serena-agent", "graphify": "graphifyy", "crg": "code-review-graph"}[provider]
+        version = run([python, "-B", "-I", "-X", "utf8", "-c", "import importlib.metadata,sys; print(importlib.metadata.version(sys.argv[1]))", distribution], root).strip()
+        if version != record["version"]:
+            raise Problem(f"Python環境とCLIのprovider版が一致しません: {provider}")
+        if any(digest(Path(record[key]).read_bytes()) != before[key + "_sha256"] for key in ("python", "command")):
+            raise Problem("検査中にprovider実行ファイルが変更されました")
+        records[provider] = {**record, **before}
+    config = data_home() / "foundation.json"
+    result = {"schema_version": 1, "approved": bool(approve), "providers": records}
+    if not approve:
+        return {"status": "PLAN", "writes": False, "config": str(config), **result}
+    # Preserve custom content by default, and retain the exact previous bytes
+    # on explicit replacement. No Ubuntu catalog or Codex settings are edited.
+    for parent in (config.parent, *config.parent.parents):
+        if is_link(parent):
+            raise Problem(f"リンクの登録先は使用しません: {parent}")
+    config.parent.mkdir(parents=True, exist_ok=True)
+    with directory_lock(config.parent):
+        if is_link(config):
+            raise Problem(f"リンクの登録先は使用しません: {config}")
+        raw = config.read_bytes() if config.exists() else None
+        content = js(result).encode()
+        if raw != content:
+            if raw is not None and not replace:
+                raise Problem("既存のprovider登録があります。更新には --replace が必要です")
+            if raw is not None:
+                atomic(config.with_name(f"foundation.backup-{time.time_ns()}.json"), raw)
+            atomic(config, content)
+    return {"status": "REGISTERED", "config": str(config), "writes": raw != content, **result}
+
+
+def probe(bins, provider, root, languages=()):
+    python = provider_python(bins, provider)
+    return json.loads(run([python, "-B", "-I", "-X", "utf8", BUNDLE_DIR / "provider_probe.py", provider, root, json.dumps(list(languages))], root))
 
 
 def source_rules(bins, root):
@@ -229,12 +321,17 @@ def source_rules(bins, root):
     return {"extensions": result, "names": names}
 
 
-def mcp_sections():
+def mcp_sections(bins=None):
     common = "enabled = true\nrequired = false\n"
-    return {
+    sections = {
         "serena": '[mcp_servers.serena]\ncommand = "serena"\nargs = ' + json.dumps(["start-mcp-server", "--context", "codex", "--project-from-cwd", "--transport", "stdio", "--enable-web-dashboard", "false", "--open-web-dashboard", "false", "--enable-gui-log-window", "false", "--log-level", "WARNING"]) + "\n" + common + 'startup_timeout_sec = 60\ntool_timeout_sec = 120\nenabled_tools = ' + json.dumps(SERENA_TOOLS) + '\n[mcp_servers.serena.env]\nSERENA_HOME = ".serena/runtime"\n',
         "crg": '[mcp_servers.crg]\ncommand = "code-review-graph"\nargs = ' + json.dumps(["serve", "--tools", ",".join(CRG_TOOLS)]) + "\n" + common + 'startup_timeout_sec = 30\ntool_timeout_sec = 180\nenabled_tools = ' + json.dumps(CRG_TOOLS) + '\n[mcp_servers.crg.env]\nCRG_PARSE_WORKERS = "2"\n',
     }
+
+    if isinstance(bins, ProviderBins):
+        for provider, command in (("serena", "serena"), ("crg", "code-review-graph")):
+            sections[provider] = sections[provider].replace('command = ' + json.dumps(command), 'command = ' + json.dumps(bins[provider], ensure_ascii=False))
+    return sections
 
 
 def add_lines(old, lines):
@@ -269,7 +366,7 @@ def plan(root, bins, files):
                     # npm creates internal .bin symlinks in Serena's own LSP install.
                     lsp = root / ".serena/runtime/language_servers"
                     internal_lsp_link = child.is_symlink() and child.is_relative_to(lsp) and child.resolve().is_relative_to(lsp)
-                    if (child.is_symlink() and not internal_lsp_link) or (not child.is_symlink() and child.is_file() and child.stat().st_nlink > 1):
+                    if (is_link(child) and not internal_lsp_link) or (not child.is_symlink() and child.is_file() and child.stat().st_nlink > 1):
                         raise Problem(f"リンクを含む既存解析状態は自動変更しません: {child}")
     tracked = git(root, "ls-files", "-z").split("\0")
     if any(x and any(x.startswith(p.strip("/") + "/") or x == p.strip("/") for p in GIT_EXCLUDES) for x in tracked):
@@ -282,7 +379,7 @@ def plan(root, bins, files):
     original = read(root, ".codex/config.toml")
     text = (original or b"").decode()
     parsed = tomllib.loads(text)
-    for name, section in mcp_sections().items():
+    for name, section in mcp_sections(bins).items():
         wanted = tomllib.loads(section)["mcp_servers"][name]
         existing = parsed.get("mcp_servers", {}).get(name)
         if existing is not None:
@@ -346,16 +443,11 @@ def plan(root, bins, files):
 
 @contextmanager
 def lock(root):
-    # Advisory flock leaves no file behind and serializes aidev for this root.
-    fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
     try:
-        try:
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            raise Problem("このRepoで別のaidev initが実行中です")
-        yield
-    finally:
-        os.close(fd)
+        with directory_lock(root):
+            yield
+    except BlockingIOError:
+        raise Problem("このRepoで別のaidev initが実行中です") from None
 
 
 def apply(root, changes, before):
@@ -423,7 +515,7 @@ def artifacts(root, languages=()):
     db = safe_path(root, ".code-review-graph/graph.db")
     if not graph.is_file() or not db.is_file():
         return None
-    data = json.loads(graph.read_text())
+    data = json.loads(graph.read_text(encoding="utf-8"))
     nodes = data.get("nodes", [])
     if not isinstance(nodes, list):
         raise Problem("Graphifyのgraph形式を確認できません")
@@ -483,7 +575,7 @@ def initialize(root, dry_run=False, timeout=600):
         commands = [
             ("serena", [bins["serena"], "project", "index", str(root), "--log-level", "WARNING"]),
             ("graphify", [bins["graphify"], "extract", str(root), "--code-only", "--no-cluster", "--max-workers", "2"]),
-            ("crg", [Path(bins["crg"]).resolve().parent / "python", "-B", "-I", BUNDLE_DIR / "provider_build.py", "update" if (root / ".code-review-graph/graph.db").exists() else "build", str(root)]),
+            ("crg", [provider_python(bins, "crg"), "-B", "-I", "-X", "utf8", BUNDLE_DIR / "provider_build.py", "update" if (root / ".code-review-graph/graph.db").exists() else "build", str(root)]),
         ]
         for name, command in commands:
             print(f"{name}: 初期化・索引確認中…", flush=True)
@@ -549,6 +641,10 @@ def doctor(root):
 
 
 def main(argv=None):
+    if WINDOWS:
+        for stream in (sys.stdout, sys.stderr):
+            if hasattr(stream, "reconfigure"):
+                stream.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", action="version", version=f"aidev {VERSION}")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -557,8 +653,17 @@ def main(argv=None):
     init.add_argument("--timeout", type=int, default=600, help="各providerの上限秒数（既定600）")
     check = sub.add_parser("doctor", help="書き換えずに設定・索引・鮮度を診断")
     check.add_argument("--json", action="store_true", help="JSONで表示")
+    setup = sub.add_parser("setup", help="指定した既存provider環境の検査・明示承認登録（自動導入なし）")
+    for provider in PROVIDERS:
+        setup.add_argument(f"--{provider}-python", type=Path, required=True, help="provider専用環境のPython絶対パス")
+    setup.add_argument("--approve", action="store_true", help="検査した3providerをこの利用者のaidevで使うことを承認して保存")
+    setup.add_argument("--replace", action="store_true", help="既存のaidev専用登録を明示的に更新")
     args = parser.parse_args(argv)
     try:
+        if args.command == "setup":
+            result = setup_foundation({p: getattr(args, p + "_python") for p in PROVIDERS}, args.approve, args.replace)
+            print(js(result), end="")
+            return 0
         root = repo_root(Path.cwd())
         if args.command == "init":
             if args.timeout < 1:
