@@ -11,13 +11,13 @@
     "provider_probe.py": "60e678c549258bc309322cdf2661cb375ef32dcc90c4859803190f0dff894256",
     "provider_build.py": "9a66675768ae52cc20a8735c615f33c108e2d5b61cb41b822701caa2f7b7134e",
     "README.md": "56457e7eb12730cf8af96f85286529c96ec8fbf093768073aea08bb5a5a7fd98",
-    "STATUS.md": "9ead661606289f89561639163b582252467768b43e32a3330295916610347fb5",
+    "STATUS.md": "343196ab6fb98d2985616f1cbfeb6cec59c5106a74a0ae80a999d43c4935f897",
     "TECHNICAL.md": "c42145acc8723f36ccbcb67bfb94fec5fd997ec20d2c016b15b71f76dd75a51b",
     "USER_GUIDE.md": "69b3477f540bc559ae9fa5b557f129c2f0b1c5b94a9a945457cedb1ea6b768e8",
     "WINDOWS.md": "1acc44a405bd9eb0768aa2669f314ca8e3e1d1ff7be41dd38794e726a05b5e17",
-    "WINDOWS_HANDOFF.md": "01f64b27c79194417a4901e798cb0d91b3b4425d3ae32202931d8d023af7acb6",
+    "WINDOWS_HANDOFF.md": "3dfde43e18d6298c2755ae831ee70d24715d7dfc1f15783ddfbe72da387577d9",
     "tests/test_aidev.py": "34dc1d27a9ade3f8f377498f85196d2e1e58d6280baa436533ce72cd36003268",
-    "tests/test_portability.py": "75c4b2d85c61a18ddf0df3a17cf6354581228dd135c1613ab8ddb8b414ee2e3a",
+    "tests/test_portability.py": "7a613d11af36865603b80ef606380e52ad959949a41983ba6d076bba9a0d2793",
     "tools/windows_handoff.py": "249a03a4a3795a165d7118ddff74d841bd7de57f15f6c4dca0c60a33883fbc09"
   }
 }

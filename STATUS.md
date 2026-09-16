@@ -8,7 +8,7 @@
 
 Windows側の作業要求と手順は、ソースに含む [/home/tn/projects/aidev/WINDOWS_HANDOFF.md](WINDOWS_HANDOFF.md) を正本とします。W-01〜W-03のsource修正とnative Windows用W-01回帰testを含むコードは **CODE_READY_CI_PENDING** です。remote CI成功前に通常利用やWindows完全受入とは扱いません。
 
-- W-01：launcherは裸の `py -3` を廃止し、実行時に検証したPython絶対パス・version・形式をrelease manifestへ記録する。cmdはcode pageを復元し、引数と終了コードを返す。native Windows testは生成済み`.cmd`を実行し、cwdの偽`py`とPATH上の偽`python`が使われないことを確認する（remote CI待ち）。
+- W-01：launcherは裸の `py -3` を廃止し、導入時に検証したPython絶対パス・version・形式をrelease manifestへ記録する。native Windows testは空白・日本語・`&`・括弧・`!`を含む一時Python環境からinstallerを実行し、生成された`.cmd`の起動、子プロセスのPython実体とmatrix指定版、引数・終了コードを照合する。cwdの偽`py`とPATH上の偽`python`が名前探索で実行される対照試験も含む。native evidenceはこのtestがWindows上でPASSした時点で成立する（現在PENDING CI）。
 - W-02：所有判定をロック取得後へ移し、release準備後・公開直前のentry再照合と、上書き禁止の公開へ変更した。一時fixtureで管理外commandの保全を確認した。Windows API実機試験は未実施。
 - W-03：installer所有の進行記録を残し、source失敗・コピー/公開失敗後に完成releaseを照合して通常installで再開する。所有記録のない旧partialは保全して停止する。一時fixtureで確認し、Windows実機試験は未実施。
 
@@ -29,6 +29,8 @@ W-02/W-03の再現はUbuntu上でWindowsのファイル処理分岐を用いた�
 - 0.2.0のWindows実機、実providerによる初期化・更新・接続・自然文照会の一連の受入は未実施です。
 - installerの一時環境での導入・同版再実行・更新、旧4ファイル形式からの移行、利用者変更保全は成功。WindowsレイアウトはUbuntu上でもfixture検査済みですが、cmd実行・Job Object・Windows排他ロックはWindows実機での確認が必要です。
 - Ubuntu/Windows × Python 3.11/3.13のGitHub Actionsを追加しました。remoteでの実行結果はまだありません。
+
+ローカルにPython 3.11がないことは失敗条件にしません。Ubuntu Python 3.11とWindows Python 3.11/3.13はPENDING CIです。必要な4構成のCI成功後にREADY_FOR_MAINを判定します。Windows実providerとCodex MCPはmain merge gateに含めず、Windows 0.2.0完全受入の別項目としてUNVERIFIEDを維持します。
 
 `LOCAL_READY` はローカル設定・索引の検査結果です。現在のCodex接続、解析の意味的な網羅性、アプリのtest成功を保証しません。
 

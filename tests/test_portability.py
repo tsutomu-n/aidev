@@ -223,30 +223,71 @@ class InstallerTests(unittest.TestCase):
 
     def test_windows_launcher_escapes_percent_in_fixed_python_path(self):
         release = self.target / 'releases' / ('a' * 20)
-        launcher = install.windows_launcher(release, {'executable': '/tmp/100% safe/python.exe'})
-        self.assertIn(b'/tmp/100%% safe/python.exe', launcher)
+        python = self.root / '100% safe' / 'python.exe'
+        launcher = install.windows_launcher(release, {'executable': str(python)})
+        self.assertIn(str(python).replace('%', '%%').encode('utf-8'), launcher)
 
     @unittest.skipUnless(platform.WINDOWS, 'requires native Windows cmd execution')
     def test_windows_cmd_launcher_uses_fixed_python_not_path_or_py(self):
-        # The installation root contains both a space and non-ASCII characters
-        # (setUp's TemporaryDirectory prefix). Run the actual generated .cmd
-        # through cmd.exe; string inspection alone is not this regression test.
-        entry = self.target / 'bin/aidev.cmd'
-        install.install()
+        # Real Python and launcher paths exercise cmd quoting. No packages are
+        # downloaded, and no installed launcher or production source is edited.
+        python_home = self.root / 'Python 日本語 & (space) !'
+        subprocess.run([sys.executable, '-X', 'utf8', '-B', '-m', 'venv', '--without-pip',
+                        str(python_home)], check=True, capture_output=True, timeout=60)
+        python = python_home / 'Scripts/python.exe'
+        target = self.root / 'app 日本語 & (space) !'
+        entry = target / 'bin/aidev.cmd'
+        installer = (
+            'import install,sys; from pathlib import Path; '
+            'install.SOURCE=Path(sys.argv[1]); install.TARGET=Path(sys.argv[2]); '
+            'install.ENTRY=Path(sys.argv[3]); install.install(upgrade=len(sys.argv)>4)'
+        )
+        install_command = [str(python), '-X', 'utf8', '-B', '-c', installer,
+                           str(self.source), str(target), str(entry)]
+        subprocess.run(install_command, cwd=Path(install.__file__).parent,
+                       check=True, capture_output=True, timeout=30)
         fake_bin = self.root / 'fake path'
         fake_bin.mkdir()
-        fake_py = self.root / 'py.cmd'  # cmd searches the working directory too.
-        fake_python = fake_bin / 'python.cmd'
-        fake_py.write_bytes(b'@echo off\r\necho invoked>"%~dp0py-invoked.txt"\r\nexit /b 73\r\n')
-        fake_python.write_bytes(b'@echo off\r\necho invoked>"%~dp0python-invoked.txt"\r\nexit /b 74\r\n')
+        (self.root / 'py.cmd').write_bytes(b'@echo off\r\necho DECOY_PY\r\nexit /b 73\r\n')
+        (fake_bin / 'python.cmd').write_bytes(b'@echo off\r\necho DECOY_PYTHON\r\nexit /b 74\r\n')
+        cmd = Path(os.environ['SystemRoot']) / 'System32/cmd.exe'
         env = dict(os.environ)
-        env['PATH'] = str(fake_bin) + os.pathsep + env.get('PATH', '')
-        result = subprocess.run(['cmd.exe', '/d', '/c', f'call "{entry}" --version'], cwd=self.root,
-                                env=env, capture_output=True, text=True, encoding='utf-8', errors='replace')
+        env['PATH'] = str(fake_bin) + os.pathsep + str(cmd.parent)
+        env['PATHEXT'] = '.COM;.EXE;.BAT;.CMD'
+
+        def run_cmd(command):
+            # Pass a cmd command line directly: list2cmdline's C quoting is not
+            # cmd quoting. /s removes just the outer pair surrounding command.
+            return subprocess.run(f'"{cmd}" /d /v:off /s /c "{command}"', executable=str(cmd),
+                                  cwd=self.root, env=env, capture_output=True, text=True,
+                                  encoding='utf-8', errors='strict', timeout=30)
+
+        # Prove that name-based lookup really would select the decoys.
+        for command, code, marker in [('py', 73, 'DECOY_PY'), ('python', 74, 'DECOY_PYTHON')]:
+            control = run_cmd(command)
+            self.assertEqual(control.returncode, code, control.stderr)
+            self.assertEqual(control.stdout.strip(), marker)
+        result = run_cmd(f'"{entry}" --version')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), 'aidev ' + aidev.VERSION)
-        self.assertFalse((self.root / 'py-invoked.txt').exists())
-        self.assertFalse((fake_bin / 'python-invoked.txt').exists())
+
+        # Install a reporting payload from disposable source using the same real
+        # installer. Version output alone cannot identify the running Python.
+        (self.source / 'aidev.py').write_text(
+            'import json,sys\n'
+            'print(json.dumps({"executable":sys.executable,"version":list(sys.version_info[:3]),'
+            '"args":sys.argv[1:]}))\n'
+            'raise SystemExit(37)\n', encoding='utf-8')
+        subprocess.run([*install_command, '--upgrade'], cwd=Path(install.__file__).parent,
+                       check=True, capture_output=True, timeout=30)
+        args = ['日本語 argument', 'a&b', '(parentheses)', '!literal!']
+        result = run_cmd(f'"{entry}" ' + ' '.join(f'"{arg}"' for arg in args))
+        self.assertEqual(result.returncode, 37, result.stderr)
+        report = json.loads(result.stdout)
+        self.assertEqual(Path(report['executable']).resolve(), python.resolve())
+        self.assertEqual(report['version'], list(sys.version_info[:3]))
+        self.assertEqual(report['args'], args)
+        self.assertNotIn('DECOY_', result.stdout + result.stderr)
 
     def test_pre_lock_foreign_entry_is_preserved(self):
         marker = b'user command\n'

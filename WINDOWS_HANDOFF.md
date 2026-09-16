@@ -25,7 +25,7 @@ Ubuntu側の作業ソースは [/home/tn/projects/aidev](/home/tn/projects/aidev
 | 項目 | 引き継ぎ時の根拠と状態 |
 |---|---|
 | ソース版 | 0.2.0。Windows対応候補の実装がある |
-| Ubuntu回帰テスト | Python 3.13.7で37件中36件成功、Windows専用junctionテスト1件skip |
+| Ubuntu回帰テスト | Python 3.13.7で42件中40件成功、Windows専用junctionとW-01 native cmd testの2件skip |
 | W-01〜W-03 | source修正済み、判定CODE_READY_CI_PENDING。Windows 11実機受入は未実施 |
 | Windows API・cmdランチャー | 実装あり、Windows実機での実行結果なし |
 | 実provider | Windowsでの導入・解析・更新・接続は未確認 |
@@ -212,6 +212,8 @@ provider自身が使うcache、config、言語サーバーの保存先も確認�
 最後に受入用repoで新規Codexセッションを開き、MCP接続と定義・参照・影響照会を確認します。現在のセッションから接続を検証できない場合は、必要な利用者操作を短く示して `未確認` とします。`LOCAL_READY` や設定ファイルの存在だけで接続を成功扱いしません。
 
 ## 8. 完了条件と証拠の残し方
+
+コード判定はCODE_READY_CI_PENDINGです。W-01のnative evidenceには、生成された`.cmd`を実行して子プロセスのPython絶対パスとmatrix指定版を照合するWindows限定testのPASSを使用します。Ubuntu/Windows × Python 3.11/3.13の4構成のCI成功後にREADY_FOR_MAINを判定します。実providerとCodex MCPはmain merge gateではなく、以下のWindows 0.2.0完全受入の別項目です。現在はUNVERIFIEDを維持します。
 
 | 確認対象 | 完了とする証拠 |
 |---|---|
