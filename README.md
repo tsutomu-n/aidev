@@ -6,7 +6,7 @@ Windows 11 / UbuntuのGitリポジトリに、Serena・Graphify・code-review-gr
 
 ## Windows側で実装を引き継ぐ
 
-**0.2.0はWindows対応候補です。既知の導入不具合3件が未修正で、Windows 11実機受入も未完了です。** Windows側のCodexには、ソースに含む [/home/tn/projects/aidev/WINDOWS_HANDOFF.md](WINDOWS_HANDOFF.md) を渡してください。clone対象とcommit照合、コピーして使える依頼文、実行できる再現ツール、修正順序、隔離条件、受入証拠、通常利用への反映条件をまとめています。通常利用のインストール前に、この引き継ぎから進めます。
+**W-01〜W-03のsource修正は未commit差分で完了し、Windows 11実機受入は未完了です。** Windows側のCodexには、ソースに含む [/home/tn/projects/aidev/WINDOWS_HANDOFF.md](WINDOWS_HANDOFF.md) を渡してください。検証済みPythonへの固定、競合時の停止、所有記録を使う再試行、隔離条件と受入証拠をまとめています。通常利用環境への導入は別途指示が必要です。
 
 ## マニュアルへ進む
 

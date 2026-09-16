@@ -209,14 +209,51 @@ class InstallerTests(unittest.TestCase):
 
     def test_windows_layout_without_symlinks(self):
         entry = self.target / 'bin/aidev.cmd'
-        with patch.object(install, 'WINDOWS', True), patch.object(install, 'ENTRY', entry), patch.object(install.shutil, 'which', side_effect=lambda name: 'py' if name == 'py' else None):
+        with patch.object(install, 'WINDOWS', True), patch.object(install, 'ENTRY', entry):
             release = install.install()
             self.assertEqual(install.active_release(), release)
             self.assertFalse(any(p.is_symlink() for p in self.target.rglob('*')))
-            self.assertTrue(entry.read_bytes().isascii())
+            launcher = entry.read_text(encoding='utf-8')
+            self.assertIn('chcp 65001', launcher)
+            self.assertIn(str(Path(sys.executable).resolve()), launcher)
+            self.assertNotIn('py -3', launcher)
             entry.write_bytes(entry.read_bytes() + b'REM user edit\r\n')
             with self.assertRaisesRegex(ValueError, '変更'):
                 install.install(upgrade=True)
+
+    def test_windows_launcher_escapes_percent_in_fixed_python_path(self):
+        release = self.target / 'releases' / ('a' * 20)
+        launcher = install.windows_launcher(release, {'executable': '/tmp/100% safe/python.exe'})
+        self.assertIn(b'/tmp/100%% safe/python.exe', launcher)
+
+    def test_pre_lock_foreign_entry_is_preserved(self):
+        marker = b'user command\n'
+        original_lock = install.directory_lock
+        from contextlib import contextmanager
+        @contextmanager
+        def race(path):
+            self.entry.write_bytes(marker)
+            with original_lock(path):
+                yield
+        with patch.object(install, 'directory_lock', race), self.assertRaisesRegex(ValueError, '管理外'):
+            install.install()
+        self.assertEqual(self.entry.read_bytes(), marker)
+
+    def test_initial_failure_with_owned_journal_retries_normally(self):
+        original = (self.source / 'aidev.py').read_bytes()
+        (self.source / 'aidev.py').write_bytes(b'invalid syntax !\n')
+        with self.assertRaises(SyntaxError):
+            install.install()
+        self.assertTrue((self.target / install.JOURNAL).is_file())
+        (self.source / 'aidev.py').write_bytes(original)
+        release = install.install()
+        self.assertEqual(install.active_release(), release)
+        self.assertFalse((self.target / install.JOURNAL).exists())
+
+    def test_unowned_partial_release_is_not_adopted(self):
+        (self.target / 'releases' / 'partial').mkdir(parents=True)
+        with self.assertRaisesRegex(ValueError, '所有記録'):
+            install.install()
 
 
 if __name__ == '__main__':

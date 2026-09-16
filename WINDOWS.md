@@ -2,14 +2,15 @@
 
 aidev 0.2.0にはWindows用のロック、子プロセス管理、インストーラーとprovider登録機能があります。WSL・Ubuntuの承認台帳・管理者権限・シンボリックリンク作成権限を前提にしません。**この変更を作成した環境はUbuntuです。Windows実機と実providerを通した受入は未確認です。** 以下は実機で確認しながら進める手順です。
 
-**開発引き継ぎ：既知の導入不具合3件が未修正です。** Windows側で仕上げる場合は、ソースに含む [/home/tn/projects/aidev/WINDOWS_HANDOFF.md](WINDOWS_HANDOFF.md) の依頼文・修正順序から始めてください。以下は修正後に照合する操作案であり、現行版を通常利用環境へ導入する前に既知の問題を解消します。
+**開発引き継ぎ：W-01〜W-03のsource修正は未commit差分で完了していますが、Windows実機受入は未実施です。** Windows側で検証する場合は、ソースに含む [/home/tn/projects/aidev/WINDOWS_HANDOFF.md](WINDOWS_HANDOFF.md) の受入表から始めてください。
 
 ## 1. 必要なものを確認する
 
-Windows 11、Python 3.11以降、Python Launcherの `py -3`、Git、uvを用意します。provider用Pythonは既存基盤と同じ3.13を指定します。PowerShellで次を確認してください。
+Windows 11、Python 3.11以降の確認済みPython実行ファイル、Git、uvを用意します。provider用Pythonは既存基盤と同じ3.13を指定します。`py` は導入時の補助確認に使えても、installed launcherのPython選択には使いません。
 
 ```powershell
-py -3 --version
+$AidevPython = (Get-Command python).Source
+& $AidevPython --version
 git --version
 uv --version
 ```
@@ -22,8 +23,9 @@ uv --version
 
 ```powershell
 $AidevSource = (Get-Location).Path
-py -3 -X utf8 (Join-Path $AidevSource 'aidev.py') --version
-py -3 -X utf8 (Join-Path $AidevSource 'install.py')
+$AidevPython = (Read-Host '確認済みPython 3.11以降のexe絶対パス').Trim()
+& $AidevPython -X utf8 (Join-Path $AidevSource 'aidev.py') --version
+& $AidevPython -X utf8 (Join-Path $AidevSource 'install.py')
 $Aidev = Join-Path $env:LOCALAPPDATA 'aidev\bin\aidev.cmd'
 & $Aidev --version
 ```
@@ -111,5 +113,6 @@ Windowsでは実際の排他ロック、Job Objectによる孫プロセス終了
 - WindowsのACLはOSの継承設定を使います。Unixの `0700` と同等の権限制御を `chmod` が提供するという意味ではありません。共有ディレクトリへの配置は避けてください。
 - 設定先・出力先のjunction、symlink、その他のreparse pointは拒否します。OneDrive等のreparse pointを含む配置で停止したら、通常のローカルディレクトリを使用します。
 - タイムアウト・中断では子プロセス一式を終了し、providerログをrepo内に保存します。Jobへの所属前はbootstrapが待機し、providerが先に子を生成する競合を防ぎます。
-- `py` が見つからない場合はPython Launcherの導入を確認します。`py -3` の選択するPythonは3.11以降が必要です。
+- launcherは導入を実行した確認済みPythonの絶対パスを記録して使います。Pythonが消えた場合、別のPythonやPATHへfallbackせず停止します。
+- 導入中に競合を検出すると新旧entryを上書きせず停止します。更新時の旧entryは管理先の専用退避先に残り、復旧が必要な場合は表示されたentry backupを確認してください。短い入口不在区間があり得るため、中断時は同じsource・同じPythonで再実行します。
 - 全3providerが前提です。1つだけ成功しても通常利用可能とは判定しません。自動承認、外部LLM呼出し、watcher、Git hook、自動commit/pushは追加していません。

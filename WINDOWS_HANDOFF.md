@@ -26,7 +26,7 @@ Ubuntu側の作業ソースは [/home/tn/projects/aidev](/home/tn/projects/aidev
 |---|---|
 | ソース版 | 0.2.0。Windows対応候補の実装がある |
 | Ubuntu回帰テスト | Python 3.13.7で37件中36件成功、Windows専用junctionテスト1件skip |
-| 既知の不具合 | 下記W-01〜W-03が未修正。成功テスト数では打ち消せない |
+| W-01〜W-03 | source修正済み（未commit差分）。Windows 11実機受入は未実施 |
 | Windows API・cmdランチャー | 実装あり、Windows実機での実行結果なし |
 | 実provider | Windowsでの導入・解析・更新・接続は未確認 |
 | GitHub Actions | Ubuntu/Windows × Python 3.11/3.13の定義あり、今回の変更のremote実行結果なし |
@@ -113,14 +113,14 @@ elseif ($AidevReproExit -ne 0) { throw '再現ツール自体の失敗' }
 
 [/home/tn/projects/aidev/tools/windows_handoff.py](tools/windows_handoff.py) は一時source・一時導入先だけを使います。実HOMEへの導入、provider実行・ダウンロード、承認登録、Git変更は行いません。WindowsではW-01用に一時repo内の無害な同名コマンドを使い、呼び出されたかをmarkerで確認します。W-02はロック前の競合を注入し、W-03はsource検証失敗とrelease準備後の失敗を別々に注入します。
 
-現在のUbuntuでの期待結果はW-01が `UNVERIFIED`、W-02/W-03の3ケースが `FAIL`、終了1です。Windowsでは実測結果を記録します。修正後にすべてPASSになることが必要ですが、このツールだけで全受入完了にはしません。制御点を変更した場合は再現ツールも実装に合わせ、実際の障害注入が行われたことを確認してください。
+source修正後のUbuntu fixtureではW-01が `UNVERIFIED`、W-02・W-03-source・W-03-publishが `PASS` です。W-03-publishはrelease準備後の例外ではなく、実際のentry公開renameを注入します。Windowsでは実測結果を記録してください。このツールだけで全受入完了にはしません。
 
 
 ### W-01：ランチャーが起動Pythonを固定していない（優先度高）
 
-対象は [/home/tn/projects/aidev/install.py](install.py) の `windows_launcher()` と `install()` です。現行ランチャーは裸の `py -3` を実行します。Windowsのコマンド探索ではカレントディレクトリが候補に含まれ、解析対象repoの同名コマンドを拾う可能性があります。インストール時の `sys.executable` と、実行時の `py -3` の選択結果も一致する保証がありません。[Microsoftのpath仕様](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/path)
+対象は [/home/tn/projects/aidev/install.py](install.py) の `windows_launcher()` と `install()` です。裸の `py -3` は廃止し、インストーラー自身で実行中Pythonの絶対パスと3.11以降を検証し、release manifestとUTF-8 cmd launcherへ固定します。cmdはcode pageを退避・切替・復元し、引数と終了コードを保全します。[Microsoftのpath仕様](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/path)
 
-根拠の区分：コードと公式仕様からの指摘。Windows実機再現は未実施です。
+根拠の区分：source fixtureでlauncher bytesとmetadataを確認。Windows実機cmd再現は未実施です。
 
 修正案：導入時に検査したPython実体を、実行時にも明示的に使います。ランチャーやPython選択をカレントディレクトリ/PATHの探索へ戻さない設計にしてください。Python 3.11以降という要件、空白・日本語を含むパス、引数の引用、終了コードの伝播、旧releaseの保持を保ちます。新しいexeや依存packageの追加を先に決める必要はありません。
 
@@ -128,7 +128,7 @@ elseif ($AidevReproExit -ne 0) { throw '再現ツール自体の失敗' }
 
 ### W-02：初回導入の競合で管理外コマンドを上書きする（優先度高）
 
-対象は [/home/tn/projects/aidev/install.py](install.py) の `install()` です。`existed` をロック取得前に計算し、その後に取得する `entry_before` との間で所有確認がずれます。
+対象は [/home/tn/projects/aidev/install.py](install.py) です。所有判定はロック取得後へ移し、release準備後と公開直前にentryを再照合します。初回公開は存在しない宛先だけへ行い、更新時は旧entryを専用退避先へ保持してから空の宛先へ公開します。
 
 再現条件：Windowsレイアウトを一時ディレクトリに用意します。`directory_lock()` の取得直前に、別の処理が入口へ利用者のコマンドを書き込みます。現行コードでは `existed=False` のまま、そのコマンドを初期値として受け入れ、後で上書きします。Ubuntu上でWindowsのファイル処理分岐を使った再現試験では `USER_COMMAND_OVERWRITTEN=True` でした。Windows APIそのものの再現結果ではありません。
 
@@ -138,7 +138,7 @@ elseif ($AidevReproExit -ne 0) { throw '再現ツール自体の失敗' }
 
 ### W-03：初回導入が途中で失敗すると再実行で復旧できない（優先度中）
 
-対象は [/home/tn/projects/aidev/install.py](install.py) の `stage_release()`、`active_release()`、`install()` です。
+対象は [/home/tn/projects/aidev/install.py](install.py) の `stage_release()`、`active_release()`、`install()` です。installer所有の `installation-progress.json` をrelease準備前から記録し、完成releaseとentry公開段階を区別します。
 
 再現条件：一時sourceのPythonファイルに構文エラーを入れて初回導入します。release用ディレクトリ作成後に `SyntaxError` となります。sourceを修復して再実行すると通常実行は「既存配置あり」、`--upgrade` は「管理外コマンド」で停止します。Ubuntu上のWindowsファイル処理分岐で再現済みです。source修復は一時fixture内でのみ行い、実sourceを壊して再現しないでください。
 

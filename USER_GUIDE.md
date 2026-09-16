@@ -115,7 +115,7 @@ python3 /home/tn/projects/aidev/install.py --upgrade
 
 管理対象の旧版だけを更新し、旧releaseは保持します。管理外のコマンドやインストール済みファイルの利用者変更があれば停止します。Gitでソースを更新しただけではインストール版は変わりません。
 
-実機での旧版upgrade受入は未実施です。検証範囲は [/home/tn/projects/aidev/STATUS.md](STATUS.md) を確認してください。
+Windows launcherは導入を実行した確認済みPythonの絶対パスを固定し、消失時に別Pythonへfallbackしません。導入/upgrade中の競合、利用者変更、所有記録のない旧partialは上書きせず停止します。installer所有の中断だけは同じsource・同じPythonで通常installを再実行して復旧できます。実機での旧版upgrade受入は未実施です。検証範囲は [/home/tn/projects/aidev/STATUS.md](STATUS.md) を確認してください。
 
 <a id="first-run"></a>
 ## 3. 対象リポジトリを初期化する

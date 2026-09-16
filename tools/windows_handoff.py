@@ -141,11 +141,14 @@ def reproduce():
                     finally:
                         (source / 'aidev.py').write_bytes(original)
                 else:
-                    original_stage = install.stage_release
-                    def failed_stage(*args, **kwargs):
-                        original_stage(*args, **kwargs)
-                        raise OSError('fixture: interrupted after release staging')
-                    with patch.object(install, 'stage_release', failed_stage):
+                    original_rename = install.os.rename
+                    def failed_publish(source_path, destination):
+                        if Path(destination) == entry:
+                            raise OSError('fixture: entry publication failed')
+                        return original_rename(source_path, destination)
+                    # This reaches the real Windows entry publication operation,
+                    # not the preceding completed-release staging operation.
+                    with patch.object(install.os, 'rename', side_effect=failed_publish):
                         try:
                             install.install()
                         except (OSError, ValueError):

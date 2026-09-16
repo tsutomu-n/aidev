@@ -83,7 +83,9 @@ Serena等の終了0でも部分失敗の出力を検出します。CRG wrapper�
 
 現行installerは9ファイル（本体、probe、build wrapper、OS対応moduleと5件の文書）のhashからrelease識別子を作り、`$HOME/.local/share/aidev/releases` に配置します。このdirectoryは初回導入または旧版からの更新時に作成されます。`installation.json` に収録ファイルhashを記録し、完全なreleaseへUbuntuは入口symlink、WindowsはASCIIのcmdランチャーをatomicに切り替えます。Windowsの保存先設定値は `%LOCALAPPDATA%\aidev` です。補助symlinkの更新を含む全操作が一括transactionという意味ではありません。
 
-`--upgrade` は旧0.1.0の既知hash、または管理releaseのmanifestと実体が一致する場合に進む設計です。ただし現行候補には、初回導入時の競合で管理外コマンドを上書きする経路と、途中失敗後に再試行できない問題があります。修正要求はソースの [/home/tn/projects/aidev/WINDOWS_HANDOFF.md](WINDOWS_HANDOFF.md) のW-02/W-03を参照してください。旧releaseは保持しますが、rollback/uninstallサブコマンドはありません。利用者・shell・global MCP設定は変更しません。
+`--upgrade` は旧0.1.0の既知hash、または管理releaseのmanifestと実体が一致する場合に進みます。release manifestには実行Pythonの絶対パス・検証済み版・launcher形式も含み、Windows launcherはそのPythonをUTF-8 cmdから直接起動します。`py` / PATHへの実行時fallbackはありません。ロック取得後と公開直前にentryの種類・内容・link先を再照合し、初回は存在しない宛先への作成だけを許可します。更新は旧entryを専用退避先へrenameしてから、空の宛先へ公開します。競合時は上書きせず停止します。
+
+`installation-progress.json` はインストーラー自身が作った未完了処理だけを記録します。source検証・コピー・entry公開の失敗後、記録と完成releaseを照合できる同一source/同一Pythonの再実行は通常installで再開できます。所有記録のない旧partial、変更済みrelease、利用者entryは自動復旧しません。旧release、entry backup、失敗したstaging以外の利用者データを削除するrollback/uninstallはありません。
 
 ## 保守時の確認
 
@@ -103,4 +105,4 @@ python3 -B install.py --help
 
 登録はCLIとPythonのpath/hashとprovider版を確認します。providerの依存ファイル全体をhash固定する仕組みではありません。専用登録を使うrepoのMCP commandは登録済みexeの絶対パスです。Windowsではvenvの `Scripts/python.exe` をそのまま使い、実体解決によってvenvを失わないようにします。JSON/TOMLとprovider JSONの文字コードはUTF-8です。Windowsのjunction/reparse pointも設定・出力先のリンク拒否対象に含めます。
 
-Windowsの子プロセスはJob Objectへの所属確認後にproviderを起動し、Jobを閉じる際に子孫も終了します。所属失敗時に無管理のprovider実行へfallbackしません。Ubuntuもtimeout時は親の終了後に残る子孫へSIGKILLを送ります。WindowsのランチャーはPython Launcherの `py -3` を使用します。
+Windowsの子プロセスはJob Objectへの所属確認後にproviderを起動し、Jobを閉じる際に子孫も終了します。所属失敗時に無管理のprovider実行へfallbackしません。Ubuntuもtimeout時は親の終了後に残る子孫へSIGKILLを送ります。Windowsのlauncherは導入時に検証したPython絶対パスを使用し、code pageを退避・UTF-8へ切替・復元して引数と終了コードを保全します。
