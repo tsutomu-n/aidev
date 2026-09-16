@@ -2,7 +2,7 @@
 
 入口：[/home/tn/projects/aidev/README.md](README.md) ／ 操作手順：[/home/tn/projects/aidev/USER_GUIDE.md](USER_GUIDE.md)
 
-作業ソースのバージョンは `0.2.0` です。main統合前のコード判定は **CODE_READY_CI_PENDING** です。remote CIのUbuntu/Windows × Python 3.11/3.13が未実行のため、**READY_FOR_MAIN** ではありません。既存環境への導入とWindows実機受入は行っていません。各環境の導入版は `aidev --version` で確認してください。ソースの取得やGitへの公開だけでは、既存インストールは更新されません。
+作業ソースのバージョンは `0.2.0` です。現在のコード判定は **CODE_READY_CI_PENDING** です。remote CIのUbuntu/Windows × Python 3.11/3.13が未実行のため、**READY_FOR_MAIN** ではありません。既存環境への導入とWindows実機受入は行っていません。各環境の導入版は `aidev --version` で確認してください。ソースの取得やGitへの公開だけでは、既存インストールは更新されません。
 
 ## source修正済み・引き継ぎ
 
@@ -24,7 +24,7 @@ W-02/W-03の再現はUbuntu上でWindowsのファイル処理分岐を用いた�
 
 ## 検証範囲
 
-- Ubuntu / Python 3.13.7で41件中40件成功、Windows専用junctionテスト1件はskip。Gitは一時repoで実行し、providerのbuildとschema取得はmockを使います。
+- Ubuntu / Python 3.13.7で42件中40件成功、Windows専用junctionとW-01 native cmd testの2件はskip。Gitは一時repoで実行し、providerのbuildとschema取得はmockを使います。
 - initのdry-run/timeout、doctorのjson、setupの明示登録、installerのupgradeを実装・CLI helpと照合しています。
 - 0.2.0のWindows実機、実providerによる初期化・更新・接続・自然文照会の一連の受入は未実施です。
 - installerの一時環境での導入・同版再実行・更新、旧4ファイル形式からの移行、利用者変更保全は成功。WindowsレイアウトはUbuntu上でもfixture検査済みですが、cmd実行・Job Object・Windows排他ロックはWindows実機での確認が必要です。
