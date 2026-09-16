@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "hash_mode": "sha256-utf8-lf",
+  "files": {
+    "AGENTS.md": "bb4c647a404e79b52bf3a6cdbde6f5a683555fc61704b51585ca273006cd94ca",
+    ".gitignore": "c2934d1af550dae4a8d70bbabdda9737e1cb4c80dcde17b12626931d56007daf",
+    ".github/workflows/tests.yml": "4491f6d13a94790b04d39d97a993c1990394a650ecc5d6bf90a8af7c506aaaa4",
+    "aidev.py": "4b68a2eae0018f9e68707c12db69b466b2ae5a702768e0992fe39fd85b8e3121",
+    "install.py": "decdc4e78737b45f2afea0fae07a98ac56a98eef3ef8c88bebba0d83dae1dbe3",
+    "platform_support.py": "efd6e1dd80c332c39b09f4491c46f2104f9b5f14f5162e7dc65c07361b64728f",
+    "provider_probe.py": "60e678c549258bc309322cdf2661cb375ef32dcc90c4859803190f0dff894256",
+    "provider_build.py": "9a66675768ae52cc20a8735c615f33c108e2d5b61cb41b822701caa2f7b7134e",
+    "README.md": "de2f83dd835fef42d489796330537368dec88b52dc3e2de0cf89f5abbde4d369",
+    "STATUS.md": "fba3ec0d7f4d811586a72f9ed6616712a89c98e3807b95886a06e7b611d4b5fe",
+    "TECHNICAL.md": "c42145acc8723f36ccbcb67bfb94fec5fd997ec20d2c016b15b71f76dd75a51b",
+    "USER_GUIDE.md": "69b3477f540bc559ae9fa5b557f129c2f0b1c5b94a9a945457cedb1ea6b768e8",
+    "WINDOWS.md": "1acc44a405bd9eb0768aa2669f314ca8e3e1d1ff7be41dd38794e726a05b5e17",
+    "WINDOWS_HANDOFF.md": "26395ae1d5f4354b8381b7ab51ded73b9dc86fba2130ab70975444cabe901a20",
+    "tests/test_aidev.py": "34dc1d27a9ade3f8f377498f85196d2e1e58d6280baa436533ce72cd36003268",
+    "tests/test_portability.py": "8be310d178378f9788dfdd494d5ca4219b9cdde70b4a33d0e1a3ac282a8fc23c",
+    "tools/windows_handoff.py": "249a03a4a3795a165d7118ddff74d841bd7de57f15f6c4dca0c60a33883fbc09"
+  }
+}

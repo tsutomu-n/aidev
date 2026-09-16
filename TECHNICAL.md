@@ -1,4 +1,6 @@
-# aidev 0.1.1 技術仕様
+# aidev 0.2.0 技術仕様
+
+入口：[/home/tn/projects/aidev/README.md](README.md) ／ 操作手順：[/home/tn/projects/aidev/USER_GUIDE.md](USER_GUIDE.md)
 
 この文書は [https://github.com/tsutomu-n/aidev/blob/main/aidev.py](https://github.com/tsutomu-n/aidev/blob/main/aidev.py)、[https://github.com/tsutomu-n/aidev/blob/main/provider_probe.py](https://github.com/tsutomu-n/aidev/blob/main/provider_probe.py)、[https://github.com/tsutomu-n/aidev/blob/main/provider_build.py](https://github.com/tsutomu-n/aidev/blob/main/provider_build.py)、[https://github.com/tsutomu-n/aidev/blob/main/install.py](https://github.com/tsutomu-n/aidev/blob/main/install.py) の現行ソースを基準とします。稼働版と検証範囲は [https://github.com/tsutomu-n/aidev/blob/main/STATUS.md](https://github.com/tsutomu-n/aidev/blob/main/STATUS.md) に分けます。
 
@@ -9,17 +11,17 @@
 | aidev本体 | Git root確認、事前検査、設定merge、backup、順次解析、状態と鮮度診断 |
 | provider_probe | 各uv tool環境のPythonでinstalled schema・拡張子・保存先を読み取る |
 | provider_build | CRGの `build_or_update_graph` APIを `postprocess="minimal"` で呼び、構造化結果を検査する |
-| installer | 管理対象のhash確認、release配置、入口symlinkの切替、旧release保持 |
+| installer | 管理対象のhash確認、release配置、OS別ランチャーの切替、旧release保持 |
 | 既存共通基盤 | provider承認・整合性とCLI実体。aidevから承認を書き換えない |
 
-本体はPython 3.11以降の標準ライブラリを使い、Linuxの `fcntl.flock` とプロセスグループ制御に依存します。Windows対応の汎用CLIではありません。providerの内部APIやschemaを参照するため、Serena 1.7.0、Graphify 0.9.55、CRG 2.3.8を要求します。
+本体はPython 3.11以降の標準ライブラリを使います。OS依存処理は [/home/tn/projects/aidev/platform_support.py](platform_support.py) に分離し、Ubuntuは `fcntl.flock` / process group、Windowsは名前付きsemaphore / Job Objectを使います。Windows実機受入は未確認です。providerの内部APIやschemaを参照するため、Serena 1.7.0、Graphify 0.9.55、CRG 2.3.8を要求します。
 
 追加する能力は `symbol_semantics: [serena]`、`architecture_relationships: [graphify]`、`change_impact: [crg]` の3つ固定です。共通Routerの最小能力選択と、この初期化プリセットを区別します。任意のprovider組合せを選ぶ個別rolloutの代替にはしません。
 
 ## 初期化の流れ
 
-1. 起動cwdがGit rootそのものか確認し、root directoryに排他的な非待機flockを取る。ロックファイルは作らない。
-2. 共通台帳の正常な承認済み3provider、PATH上のCLI版、保存先overrideを確認する。
+1. 起動cwdがGit rootそのものか確認し、root directoryに対応するOS別の排他的な非待機ロックを取る。ロックファイルは作らない。
+2. 専用登録があれば登録された3providerの承認・実行ファイルhash・CLI版を確認する。専用登録がないUbuntuでは従来の共通台帳とPATH上のCLI版を確認する。保存先overrideも拒否する。
 3. installed parserの拡張子・package manifest名を取得し、Gitが認識する対象ファイルを列挙する。
 4. 設定・保存先・追跡済み生成物・既存Serena schemaを検査し、変更予定と変更前byteを用意する。dry-runはここで `PLAN` を返す。
 5. 設定の並行変更を再確認し、backupのGit除外を先に保証する。変更する既存textを保存し、ファイルごとにatomic replaceする。
@@ -79,9 +81,11 @@ Serena等の終了0でも部分失敗の出力を検出します。CRG wrapper�
 
 ## installerの契約
 
-現行installerは4ファイル（本体、probe、build wrapper、README）のhashからrelease識別子を作り、`$HOME/.local/share/aidev/releases` に配置します。このdirectoryは初回導入または旧版からの更新時に作成されます。`installation.json` に収録ファイルhashを記録し、完全なreleaseへ入口symlinkをatomicに切り替えます。補助symlinkの更新を含む全操作が一括transactionという意味ではありません。
+現行installerは9ファイル（本体、probe、build wrapper、OS対応moduleと5件の文書）のhashからrelease識別子を作り、`$HOME/.local/share/aidev/releases` に配置します。このdirectoryは初回導入または旧版からの更新時に作成されます。`installation.json` に収録ファイルhashを記録し、完全なreleaseへUbuntuは入口symlink、WindowsはASCIIのcmdランチャーをatomicに切り替えます。Windowsの保存先設定値は `%LOCALAPPDATA%\aidev` です。補助symlinkの更新を含む全操作が一括transactionという意味ではありません。
 
-`--upgrade` は旧0.1.0の既知hash、または管理releaseのmanifestと実体が一致する場合だけ進みます。既存利用者変更は上書きしません。旧releaseは保持しますが、rollback/uninstallサブコマンドはありません。利用者・shell・global MCP設定は変更しません。
+`--upgrade` は旧0.1.0の既知hash、または管理releaseのmanifestと実体が一致する場合に進みます。release manifestには実行Pythonの絶対パス・検証済み版・launcher形式も含み、Windows launcherはそのPythonをUTF-8 cmdから直接起動します。`py` / PATHへの実行時fallbackはありません。ロック取得後と公開直前にentryの種類・内容・link先を再照合し、初回は存在しない宛先への作成だけを許可します。更新は旧entryを専用退避先へrenameしてから、空の宛先へ公開します。競合時は上書きせず停止します。
+
+`installation-progress.json` はインストーラー自身が作った未完了処理だけを記録します。source検証・コピー・entry公開の失敗後、記録と完成releaseを照合できる同一source/同一Pythonの再実行は通常installで再開できます。所有記録のない旧partial、変更済みrelease、利用者entryは自動復旧しません。旧release、entry backup、失敗したstaging以外の利用者データを削除するrollback/uninstallはありません。
 
 ## 保守時の確認
 
@@ -94,3 +98,11 @@ python3 -B install.py --help
 ```
 
 既存20テストは一時Git repoとproviderのmockで、保全・再実行・鮮度・部分失敗・timeoutなどを確認します。実providerやinstaller更新経路の受入とは別です。provider版を変える場合は、probe/API・設定・実索引・実照会の互換性を対象環境で確認し、版の定数だけを書き換えて完了としません。
+
+## Windowsと専用provider登録
+
+[/home/tn/projects/aidev/WINDOWS.md](WINDOWS.md) に操作契約を記載しています。`setup` は指定された専用Pythonと同じ環境のCLIを検査し、`--approve` がある場合だけaidev専用の登録を保存します。`--replace` で更新する際は元のbytesをbackupします。従来のUbuntu共通台帳やCodexの承認設定は変更しません。専用登録はmodule台帳の移植ではなく、aidev自身の起動契約です。
+
+登録はCLIとPythonのpath/hashとprovider版を確認します。providerの依存ファイル全体をhash固定する仕組みではありません。専用登録を使うrepoのMCP commandは登録済みexeの絶対パスです。Windowsではvenvの `Scripts/python.exe` をそのまま使い、実体解決によってvenvを失わないようにします。JSON/TOMLとprovider JSONの文字コードはUTF-8です。Windowsのjunction/reparse pointも設定・出力先のリンク拒否対象に含めます。
+
+Windowsの子プロセスはJob Objectへの所属確認後にproviderを起動し、Jobを閉じる際に子孫も終了します。所属失敗時に無管理のprovider実行へfallbackしません。Ubuntuもtimeout時は親の終了後に残る子孫へSIGKILLを送ります。Windowsのlauncherは導入時に検証したPython絶対パスを使用し、code pageを退避・UTF-8へ切替・復元して引数と終了コードを保全します。

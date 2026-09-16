@@ -27,7 +27,7 @@ class InitTests(unittest.TestCase):
         self.root = Path(self.tmp.name)
         subprocess.run(["git", "init", "-q", str(self.root)], check=True)
         self.bins = {name: name for name in aidev.PROVIDERS}
-        self.patchers = [patch.object(aidev, "foundation", return_value=self.bins), patch.object(aidev, "probe", side_effect=self.probe)]
+        self.patchers = [patch.object(aidev, "foundation", return_value=self.bins), patch.object(aidev, "probe", side_effect=self.probe), patch.object(aidev, "provider_python", return_value=Path(sys.executable))]
         for p in self.patchers:
             p.start()
             self.addCleanup(p.stop)
@@ -127,7 +127,12 @@ class InitTests(unittest.TestCase):
 
     def test_symlink_does_not_write_outside_repo(self):
         with tempfile.TemporaryDirectory() as outside:
-            (self.root / ".codex").symlink_to(outside, target_is_directory=True)
+            try:
+                (self.root / ".codex").symlink_to(outside, target_is_directory=True)
+            except OSError as exc:
+                if os.name == "nt" and getattr(exc, "winerror", None) == 1314:
+                    self.skipTest("Windows symlink privilege unavailable; junction tested separately")
+                raise
             with self.assertRaisesRegex(aidev.Problem, "symlink"):
                 aidev.initialize(self.root)
             self.assertEqual(list(Path(outside).iterdir()), [])
