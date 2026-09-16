@@ -26,7 +26,7 @@ Ubuntu側の作業ソースは [/home/tn/projects/aidev](/home/tn/projects/aidev
 |---|---|
 | ソース版 | 0.2.0。Windows対応候補の実装がある |
 | Ubuntu回帰テスト | Python 3.13.7で37件中36件成功、Windows専用junctionテスト1件skip |
-| W-01〜W-03 | source修正済み（未commit差分）。Windows 11実機受入は未実施 |
+| W-01〜W-03 | source修正済み、判定CODE_READY_CI_PENDING。Windows 11実機受入は未実施 |
 | Windows API・cmdランチャー | 実装あり、Windows実機での実行結果なし |
 | 実provider | Windowsでの導入・解析・更新・接続は未確認 |
 | GitHub Actions | Ubuntu/Windows × Python 3.11/3.13の定義あり、今回の変更のremote実行結果なし |
@@ -113,7 +113,7 @@ elseif ($AidevReproExit -ne 0) { throw '再現ツール自体の失敗' }
 
 [/home/tn/projects/aidev/tools/windows_handoff.py](tools/windows_handoff.py) は一時source・一時導入先だけを使います。実HOMEへの導入、provider実行・ダウンロード、承認登録、Git変更は行いません。WindowsではW-01用に一時repo内の無害な同名コマンドを使い、呼び出されたかをmarkerで確認します。W-02はロック前の競合を注入し、W-03はsource検証失敗とrelease準備後の失敗を別々に注入します。
 
-source修正後のUbuntu fixtureではW-01が `UNVERIFIED`、W-02・W-03-source・W-03-publishが `PASS` です。W-03-publishはrelease準備後の例外ではなく、実際のentry公開renameを注入します。Windowsでは実測結果を記録してください。このツールだけで全受入完了にはしません。
+source修正後のUbuntu fixtureではW-01が `UNVERIFIED`、W-02・W-03-source・W-03-publishが `PASS` です。W-01はWindows限定unit testで実際の`.cmd`を起動し、cwdの偽`py`とPATH上の偽`python`を使わないことを確認します。W-03-publishはrelease準備後の例外ではなく、実際のentry公開renameを注入します。remote CI成功までこのツールだけで全受入完了にはしません。
 
 
 ### W-01：ランチャーが起動Pythonを固定していない（優先度高）

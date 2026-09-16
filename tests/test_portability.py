@@ -226,6 +226,28 @@ class InstallerTests(unittest.TestCase):
         launcher = install.windows_launcher(release, {'executable': '/tmp/100% safe/python.exe'})
         self.assertIn(b'/tmp/100%% safe/python.exe', launcher)
 
+    @unittest.skipUnless(platform.WINDOWS, 'requires native Windows cmd execution')
+    def test_windows_cmd_launcher_uses_fixed_python_not_path_or_py(self):
+        # The installation root contains both a space and non-ASCII characters
+        # (setUp's TemporaryDirectory prefix). Run the actual generated .cmd
+        # through cmd.exe; string inspection alone is not this regression test.
+        entry = self.target / 'bin/aidev.cmd'
+        install.install()
+        fake_bin = self.root / 'fake path'
+        fake_bin.mkdir()
+        fake_py = self.root / 'py.cmd'  # cmd searches the working directory too.
+        fake_python = fake_bin / 'python.cmd'
+        fake_py.write_bytes(b'@echo off\r\necho invoked>"%~dp0py-invoked.txt"\r\nexit /b 73\r\n')
+        fake_python.write_bytes(b'@echo off\r\necho invoked>"%~dp0python-invoked.txt"\r\nexit /b 74\r\n')
+        env = dict(os.environ)
+        env['PATH'] = str(fake_bin) + os.pathsep + env.get('PATH', '')
+        result = subprocess.run(['cmd.exe', '/d', '/c', f'call "{entry}" --version'], cwd=self.root,
+                                env=env, capture_output=True, text=True, encoding='utf-8', errors='replace')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), 'aidev ' + aidev.VERSION)
+        self.assertFalse((self.root / 'py-invoked.txt').exists())
+        self.assertFalse((fake_bin / 'python-invoked.txt').exists())
+
     def test_pre_lock_foreign_entry_is_preserved(self):
         marker = b'user command\n'
         original_lock = install.directory_lock

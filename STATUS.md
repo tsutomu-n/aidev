@@ -2,13 +2,13 @@
 
 入口：[/home/tn/projects/aidev/README.md](README.md) ／ 操作手順：[/home/tn/projects/aidev/USER_GUIDE.md](USER_GUIDE.md)
 
-作業ソースのバージョンは `0.2.0` です。このWindows対応候補の受け渡しbranchは `feat/windows11-handoff` です。公開先のcommitとの一致は受領検査で確認してください。既存環境への導入とWindows実機受入は行っていません。各環境の導入版は `aidev --version` で確認してください。ソースの取得やGitへの公開だけでは、既存インストールは更新されません。
+作業ソースのバージョンは `0.2.0` です。main統合前のコード判定は **CODE_READY_CI_PENDING** です。remote CIのUbuntu/Windows × Python 3.11/3.13が未実行のため、**READY_FOR_MAIN** ではありません。既存環境への導入とWindows実機受入は行っていません。各環境の導入版は `aidev --version` で確認してください。ソースの取得やGitへの公開だけでは、既存インストールは更新されません。
 
 ## source修正済み・引き継ぎ
 
-Windows側の作業要求と手順は、ソースに含む [/home/tn/projects/aidev/WINDOWS_HANDOFF.md](WINDOWS_HANDOFF.md) を正本とします。W-01〜W-03のsource修正は未commit差分で完了しました。通常利用前にWindows実機とremote CIを受入してください。
+Windows側の作業要求と手順は、ソースに含む [/home/tn/projects/aidev/WINDOWS_HANDOFF.md](WINDOWS_HANDOFF.md) を正本とします。W-01〜W-03のsource修正とnative Windows用W-01回帰testを含むコードは **CODE_READY_CI_PENDING** です。remote CI成功前に通常利用やWindows完全受入とは扱いません。
 
-- W-01：launcherは裸の `py -3` を廃止し、実行時に検証したPython絶対パス・version・形式をrelease manifestへ記録する。cmdはcode pageを復元し、引数と終了コードを返す。ネイティブWindows cmd実行は未実施。
+- W-01：launcherは裸の `py -3` を廃止し、実行時に検証したPython絶対パス・version・形式をrelease manifestへ記録する。cmdはcode pageを復元し、引数と終了コードを返す。native Windows testは生成済み`.cmd`を実行し、cwdの偽`py`とPATH上の偽`python`が使われないことを確認する（remote CI待ち）。
 - W-02：所有判定をロック取得後へ移し、release準備後・公開直前のentry再照合と、上書き禁止の公開へ変更した。一時fixtureで管理外commandの保全を確認した。Windows API実機試験は未実施。
 - W-03：installer所有の進行記録を残し、source失敗・コピー/公開失敗後に完成releaseを照合して通常installで再開する。所有記録のない旧partialは保全して停止する。一時fixtureで確認し、Windows実機試験は未実施。
 
