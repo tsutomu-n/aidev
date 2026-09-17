@@ -2,7 +2,7 @@
 
 aidev 0.2.0にはWindows用のロック、子プロセス管理、インストーラーとprovider登録機能があります。WSL・Ubuntuの承認台帳・管理者権限・シンボリックリンク作成権限を前提にしません。**この変更を作成した環境はUbuntuです。Windows実機と実providerを通した受入は未確認です。** 以下は実機で確認しながら進める手順です。
 
-**開発引き継ぎ：W-01〜W-03のsource修正は未commit差分で完了していますが、Windows実機受入は未実施です。** Windows側で検証する場合は、ソースに含む [/home/tn/projects/aidev/WINDOWS_HANDOFF.md](WINDOWS_HANDOFF.md) の受入表から始めてください。
+**開発引き継ぎ：W-01〜W-03のsource修正はcommit済みで、fixtureルート正規化後のCI全4構成も成功しました。Windows 11実機受入は未実施です。** Windows側で検証する場合は、ソースに含む [/home/tn/projects/aidev/WINDOWS_HANDOFF.md](WINDOWS_HANDOFF.md) の受入表から始めてください。検証commit・CIの証拠は [/home/tn/projects/aidev/STATUS.md](STATUS.md) にあります。
 
 ## 1. 必要なものを確認する
 
@@ -19,7 +19,7 @@ uv --version
 
 ## 2. aidevを配置する
 
-**0.2.0のソースを受け取ったフォルダー**をPowerShellで開いて実行します。ソース変更だけでは既存インストールは更新されません。GitHubへ未公開の変更を使う場合、古いmainのcloneだけではこの機能は入りません。
+**0.2.0のソースを受け取ったフォルダー**をPowerShellで開いて実行します。先に引き継ぎ資料の手順で、送付側が伝えた完全なcommit hashと受領manifestを照合してください。ソース変更だけでは既存インストールは更新されません。
 
 ```powershell
 $AidevSource = (Get-Location).Path
@@ -30,7 +30,7 @@ $Aidev = Join-Path $env:LOCALAPPDATA 'aidev\bin\aidev.cmd'
 & $Aidev --version
 ```
 
-期待する表示は `aidev 0.2.0` です。入口は設定値 `%LOCALAPPDATA%\aidev\bin\aidev.cmd`、releaseと同梱文書は `%LOCALAPPDATA%\aidev\releases` に置きます。実際の配置先はインストーラーにも表示されます。既存の管理対象を更新する場合だけ、インストールコマンドに `--upgrade` を付けます。旧releaseの保持と利用者変更の保全を意図した設計ですが、現行候補には導入時の競合と途中失敗後の復旧に不具合があります。開発引き継ぎのW-02/W-03を先に解消してください。
+期待する表示は `aidev 0.2.0` です。入口は設定値 `%LOCALAPPDATA%\aidev\bin\aidev.cmd`、releaseと同梱文書は `%LOCALAPPDATA%\aidev\releases` に置きます。実際の配置先はインストーラーにも表示されます。既存の管理対象を更新する場合だけ、インストールコマンドに `--upgrade` を付けます。W-02/W-03の競合時の保全と途中失敗からの復旧はsource修正済みで、Ubuntu/Windows CIの回帰テストが成功しています。Windows 11での専用環境の受入を済ませてから、指示された通常利用環境へ反映してください。
 
 次は**現在のPowerShellだけ**のPATH設定です。永続PATH・レジストリ・PowerShell実行ポリシーはインストーラーでは変更しません。
 
@@ -100,10 +100,11 @@ aidev doctor --json
 ソースを置いたフォルダーで、providerの実解析をしない回帰テストを実行できます。テストが作るrepo・インストール先・登録先は一時フォルダーです。
 
 ```powershell
-py -3 -X utf8 -B -W error::ResourceWarning -m unittest discover -s tests -v
+& $AidevPython -X utf8 -B -W error::ResourceWarning -m unittest discover -s tests -v
+if ($LASTEXITCODE -ne 0) { throw '回帰テスト失敗' }
 ```
 
-Windowsでは実際の排他ロック、Job Objectによる孫プロセス終了、junction拒否、空白・日本語を含む配置先、cmdランチャー、導入・更新・利用者変更保全を検査します。symlink作成権限がない場合はsymlinkだけのテストをskipし、管理者権限不要のjunctionテストは実行します。GitHub ActionsにもUbuntu/Windowsの同じテストを用意していますが、workflow追加だけでは実行済みになりません。
+Windowsでは実際の排他ロック、Job Objectによる孫プロセス終了、junction拒否、空白・日本語を含む配置先、cmdランチャー、導入・更新・利用者変更保全を検査します。symlink作成権限がない場合はsymlinkだけのテストをskipし、管理者権限不要のjunctionテストは実行します。GitHub ActionsのWindows Server 2025ではPython 3.11/3.13の両構成でこれらが成功しました。Windows 11端末の検証結果とは区別してください。
 
 このテストのprovider部分はfixtureです。実providerでの導入・`setup`・`init`・編集後の再初期化・`doctor`・Codex照会の成功を別途確認してください。Job Objectへの所属に失敗する制限環境ではproviderを起動せず停止します。[MicrosoftのJob Objects仕様](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects)
 
@@ -114,5 +115,6 @@ Windowsでは実際の排他ロック、Job Objectによる孫プロセス終了
 - 設定先・出力先のjunction、symlink、その他のreparse pointは拒否します。OneDrive等のreparse pointを含む配置で停止したら、通常のローカルディレクトリを使用します。
 - タイムアウト・中断では子プロセス一式を終了し、providerログをrepo内に保存します。Jobへの所属前はbootstrapが待機し、providerが先に子を生成する競合を防ぎます。
 - launcherは導入を実行した確認済みPythonの絶対パスを記録して使います。Pythonが消えた場合、別のPythonやPATHへfallbackせず停止します。
+- Windows CIではlauncher実行時に既存の `Parameter format not correct - code` が残っています。起動・引数・終了コードの検証は成功していますが、元のcode pageの復元は未確認です。詳しい証拠と範囲は [/home/tn/projects/aidev/STATUS.md](STATUS.md) を参照してください。
 - 導入中に競合を検出すると新旧entryを上書きせず停止します。更新時の旧entryは管理先の専用退避先に残り、復旧が必要な場合は表示されたentry backupを確認してください。短い入口不在区間があり得るため、中断時は同じsource・同じPythonで再実行します。
 - 全3providerが前提です。1つだけ成功しても通常利用可能とは判定しません。自動承認、外部LLM呼出し、watcher、Git hook、自動commit/pushは追加していません。

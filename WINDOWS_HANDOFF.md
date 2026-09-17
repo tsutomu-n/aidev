@@ -1,6 +1,6 @@
 # Windows 11側のCodexへの実装引き継ぎ
 
-**目的：aidev 0.2.0のWindows対応候補を、ネイティブWindows 11で修正・検証し、実際に利用できる状態へ仕上げる。** 最初に既知の不具合3件を修正し、その後に専用の検証環境で導入と実providerの受入を進めます。現時点でWindows対応の完成・受入済みとは判定しません。
+**目的：aidev 0.2.0のWindows対応候補を、ネイティブWindows 11で検証し、実際に利用できる状態へ仕上げる。** W-01〜W-03のsource修正とfixtureのパス正規化はCI全4構成で成功しました。残る警告を確認し、専用の検証環境で導入と実providerの受入を進めます。現時点でWindows 11対応の完成・受入済みとは判定しません。
 
 ## 1. 最初に決めておく範囲
 
@@ -26,17 +26,18 @@ Ubuntu側の作業ソースは [/home/tn/projects/aidev](/home/tn/projects/aidev
 |---|---|
 | ソース版 | 0.2.0。Windows対応候補の実装がある |
 | Ubuntu回帰テスト | Python 3.13.7で42件中40件成功、Windows専用junctionとW-01 native cmd testの2件skip |
-| W-01〜W-03 | source修正済み、判定CODE_READY_CI_PENDING。Windows 11実機受入は未実施 |
-| Windows API・cmdランチャー | 実装あり、Windows実機での実行結果なし |
+| W-01〜W-03 | source修正済み、検証commitはREADY_FOR_MAIN。Windows 11実機受入は未実施 |
+| Windows API・cmdランチャー | Windows CIの両Python構成でW-01 native cmd・junction/symlink拒否・排他・子孫終了・安全性テストが成功。code page復元警告が残る |
 | 実provider | Windowsでの導入・解析・更新・接続は未確認 |
-| GitHub Actions | Ubuntu/Windows × Python 3.11/3.13の定義あり、今回の変更のremote実行結果なし |
+| GitHub Actions | commit `b91bf2c00fb0fd7e6b031b5dbede4fffd02ed991` の [CI](https://github.com/tsutomu-n/aidev/actions/runs/35207281491) 全4構成成功。Ubuntu各40成功・2skip、Windows各41成功・1skip（全42件） |
+| CIのOS | Ubuntu 24.04 / Windows Server 2025 Datacenter build `10.0.26100`。Windows image `windows-2025-vs2026` / `20260907.229.1`。Windows 11実機とは別 |
 | 公開元のbase commit | `238c0f3d6312915a8bc8c48784b309b21463eaa8`。このcommitだけではWindows対応差分は入らない |
 
-既存のWindows操作案は [/home/tn/projects/aidev/WINDOWS.md](WINDOWS.md)、実装契約は [/home/tn/projects/aidev/TECHNICAL.md](TECHNICAL.md)、検証状態は [/home/tn/projects/aidev/STATUS.md](STATUS.md) にあります。操作案より、この資料の既知不具合と修正順序を先に確認してください。
+既存のWindows操作案は [/home/tn/projects/aidev/WINDOWS.md](WINDOWS.md)、実装契約は [/home/tn/projects/aidev/TECHNICAL.md](TECHNICAL.md)、検証状態は [/home/tn/projects/aidev/STATUS.md](STATUS.md) にあります。操作案より、この資料の修正済み項目と残る受入条件を先に確認してください。
 
 ## 3. Windows側へcloneして内容を照合する
 
-受け渡しbranchは `feat/windows11-handoff` です。**送付側がpushを確認して伝えた完全なcommit hashと、下記branchの内容を照合してcloneします。** 資料だけでなく、0.2.0の実装・追加テスト・CIも同じbranchに含める必要があります。公開後もmainへのmergeやrelease公開は別です。
+受け渡しbranchは `main` です。**[PR #1](https://github.com/tsutomu-n/aidev/pull/1) のマージ後、送付側がmainのCI成功を確認して伝えた完全なcommit hashと、下記branchの内容を照合してcloneします。** 資料だけでなく、0.2.0の実装・追加テスト・CIも同じbranchに含める必要があります。release公開や通常利用環境への導入は別工程です。
 
 公開する側は、作業一式と受領manifestを同じcommitへ含め、push後の完全なcommit hashを受け取る側へ伝えます。base commitや版表示だけでは受領確認になりません。送付する具体的な一覧は [/home/tn/projects/aidev/WINDOWS_HANDOFF_MANIFEST.json](WINDOWS_HANDOFF_MANIFEST.json) にあります。
 
@@ -46,11 +47,11 @@ WindowsのPowerShellで、clone先の親フォルダーを開きます。次の�
 $ErrorActionPreference = 'Stop'
 $AidevExpectedHead = (Read-Host '送付側から受け取った完全なcommit hash').Trim()
 if ($AidevExpectedHead -notmatch '^[0-9a-f]{40}$') { throw '完全なcommit hashが必要です' }
-$AidevRemote = @(git ls-remote --heads https://github.com/tsutomu-n/aidev.git refs/heads/feat/windows11-handoff)
+$AidevRemote = @(git ls-remote --heads https://github.com/tsutomu-n/aidev.git refs/heads/main)
 if ($LASTEXITCODE -ne 0 -or $AidevRemote.Count -ne 1) { throw '引き継ぎbranchを取得できません' }
 if (($AidevRemote[0] -split '\s+')[0] -ne $AidevExpectedHead) { throw '送付側のcommitとremoteが一致しません' }
 if (Test-Path -LiteralPath 'aidev') { throw '既存フォルダーを保全し、別のclone先を選んでください' }
-git clone --branch feat/windows11-handoff --single-branch https://github.com/tsutomu-n/aidev.git aidev
+git clone --branch main --single-branch https://github.com/tsutomu-n/aidev.git aidev
 if ($LASTEXITCODE -ne 0) { throw 'clone失敗' }
 $AidevSource = (Resolve-Path -LiteralPath 'aidev').Path
 Set-Location -LiteralPath $AidevSource
@@ -84,7 +85,7 @@ Git rootからAGENTS.mdとWINDOWS_HANDOFF.mdを読み、受領検査の結果と
 既知不具合の再現にはtools/windows_handoff.py reproduceを使えます。修正前のexit 1を隠さないでください。
 Ubuntuでの過去の成功や資料の記載を、Windows実機での成功に読み替えないでください。
 
-W-01、W-02、W-03を再現可能なテストで確認し、修正と検証まで実行してください。
+W-01、W-02、W-03はsource修正とCIが成功しています。Windows 11でも回帰を確認し、残る警告や実機で再現した問題を修正・検証してください。
 起動・ロック・Job Objectの実装方式は固定せず、不変条件を満たす最小の修正を選んでください。
 その後、Windowsの排他ロック、Job Object、導入・更新・復旧、Unicodeパスを確認してください。
 指定版providerの導入と実解析は、この作業専用の隔離した検証環境で進めてください。
@@ -113,14 +114,14 @@ elseif ($AidevReproExit -ne 0) { throw '再現ツール自体の失敗' }
 
 [/home/tn/projects/aidev/tools/windows_handoff.py](tools/windows_handoff.py) は一時source・一時導入先だけを使います。実HOMEへの導入、provider実行・ダウンロード、承認登録、Git変更は行いません。WindowsではW-01用に一時repo内の無害な同名コマンドを使い、呼び出されたかをmarkerで確認します。W-02はロック前の競合を注入し、W-03はsource検証失敗とrelease準備後の失敗を別々に注入します。
 
-source修正後のUbuntu fixtureではW-01が `UNVERIFIED`、W-02・W-03-source・W-03-publishが `PASS` です。W-01はWindows限定unit testで実際の`.cmd`を起動し、cwdの偽`py`とPATH上の偽`python`を使わないことを確認します。W-03-publishはrelease準備後の例外ではなく、実際のentry公開renameを注入します。remote CI成功までこのツールだけで全受入完了にはしません。
+source修正後のUbuntu fixtureではW-01が `UNVERIFIED`、W-02・W-03-source・W-03-publishが `PASS` です。W-01はWindows限定unit testで実際の`.cmd`を起動し、cwdの偽`py`とPATH上の偽`python`を使わないことを確認します。このtestは今回のWindows CIの両Python構成で成功しました。W-03-publishはrelease準備後の例外ではなく、実際のentry公開renameを注入します。再現ツールやCIの成功だけでWindows 11の全受入完了にはしません。
 
 
 ### W-01：ランチャーが起動Pythonを固定していない（優先度高）
 
 対象は [/home/tn/projects/aidev/install.py](install.py) の `windows_launcher()` と `install()` です。裸の `py -3` は廃止し、インストーラー自身で実行中Pythonの絶対パスと3.11以降を検証し、release manifestとUTF-8 cmd launcherへ固定します。cmdはcode pageを退避・切替・復元し、引数と終了コードを保全します。[Microsoftのpath仕様](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/path)
 
-根拠の区分：source fixtureでlauncher bytesとmetadataを確認。Windows実機cmd再現は未実施です。
+根拠の区分：source fixtureでlauncher bytesとmetadataを確認。Windows Server 2025のCIでnative cmd起動・固定Python・引数・終了コード・偽コマンド非実行が成功しました。導入・更新テストには既存の `Parameter format not correct - code` が残り、元のcode pageの復元成功は未確認です。Windows 11端末での検証も未実施です。
 
 修正案：導入時に検査したPython実体を、実行時にも明示的に使います。ランチャーやPython選択をカレントディレクトリ/PATHの探索へ戻さない設計にしてください。Python 3.11以降という要件、空白・日本語を含むパス、引数の引用、終了コードの伝播、旧releaseの保持を保ちます。新しいexeや依存packageの追加を先に決める必要はありません。
 
@@ -130,7 +131,7 @@ source修正後のUbuntu fixtureではW-01が `UNVERIFIED`、W-02・W-03-source�
 
 対象は [/home/tn/projects/aidev/install.py](install.py) です。所有判定はロック取得後へ移し、release準備後と公開直前にentryを再照合します。初回公開は存在しない宛先だけへ行い、更新時は旧entryを専用退避先へ保持してから空の宛先へ公開します。
 
-再現条件：Windowsレイアウトを一時ディレクトリに用意します。`directory_lock()` の取得直前に、別の処理が入口へ利用者のコマンドを書き込みます。現行コードでは `existed=False` のまま、そのコマンドを初期値として受け入れ、後で上書きします。Ubuntu上でWindowsのファイル処理分岐を使った再現試験では `USER_COMMAND_OVERWRITTEN=True` でした。Windows APIそのものの再現結果ではありません。
+修正前の再現条件：Windowsレイアウトを一時ディレクトリに用意し、`directory_lock()` の取得直前に別の処理が入口へ利用者のコマンドを書き込みました。修正前コードは `existed=False` のままそのコマンドを初期値として受け入れ、後で上書きしました。Ubuntu上でWindowsのファイル処理分岐を使った再現試験では `USER_COMMAND_OVERWRITTEN=True` でした。修正後はUbuntu/Windows CIの回帰テストで管理外commandの保全を確認しています。
 
 修正案：所有確認と導入済み/未完了の判定はロック取得後の現状で行います。入口切替直前にも変更を検出します。協調ロックを使わない外部writerに対して保証する範囲を明確にし、単にロックがあることを保全の証明にしないでください。
 
@@ -140,7 +141,7 @@ source修正後のUbuntu fixtureではW-01が `UNVERIFIED`、W-02・W-03-source�
 
 対象は [/home/tn/projects/aidev/install.py](install.py) の `stage_release()`、`active_release()`、`install()` です。installer所有の `installation-progress.json` をrelease準備前から記録し、完成releaseとentry公開段階を区別します。
 
-再現条件：一時sourceのPythonファイルに構文エラーを入れて初回導入します。release用ディレクトリ作成後に `SyntaxError` となります。sourceを修復して再実行すると通常実行は「既存配置あり」、`--upgrade` は「管理外コマンド」で停止します。Ubuntu上のWindowsファイル処理分岐で再現済みです。source修復は一時fixture内でのみ行い、実sourceを壊して再現しないでください。
+修正前の再現条件：一時sourceのPythonファイルに構文エラーを入れて初回導入すると、release用ディレクトリ作成後に `SyntaxError` となりました。sourceを修復して再実行しても通常実行は「既存配置あり」、`--upgrade` は「管理外コマンド」で停止しました。修正後はUbuntu/Windows CIで初回失敗からの再試行と所有記録のないpartialの保全を確認しています。source修復は一時fixture内でのみ行い、実sourceを壊して再現しないでください。
 
 修正案：未完了の導入、正常な管理release、管理外の既存配置を区別します。所有権が確認できる未完了処理だけを安全に再試行できるようにします。既存データを削除して通す処理、無条件の上書きや広いcleanupは不可です。
 
@@ -150,7 +151,7 @@ source修正後のUbuntu fixtureではW-01が `UNVERIFIED`、W-02・W-03-source�
 
 1. **環境と差分の確認。** Windows 11のedition/build、PowerShell、Python実体/版、Git、uv、HEADを記録します。既存writer・dirty treeを確認し、必要な実行ツールだけを調べます。起動前にランチャーを読んでください。
 2. **既存テストをWindowsで実行。** 実providerなしで現状の失敗を把握します。symlink権限がない場合のskipは許容しますが、junction・ロック・Job Objectの失敗をskipで隠さないでください。
-3. **W-01〜W-03の回帰テストと修正。** Windowsの再現テストと、Ubuntuでも実行できるファイル操作テストを適切に分けます。全体テストの件数を増やすこと自体は目的にしません。
+3. **W-01〜W-03の回帰確認と残課題の修正。** Windowsの再現テストと、Ubuntuでも実行できるファイル操作テストを適切に分けます。全体テストの件数を増やすこと自体は目的にしません。
 4. **OS固有処理の受入。** 別プロセス間の排他、強制終了後のロック再取得、timeout・Ctrl+C・親の終了後に残る孫プロセス、Job所属失敗時の停止を確認します。空白・日本語、junction、複数Python、管理者権限なしの起動を扱います。
 5. **専用環境で実providerの受入。** 次節の順で、依存導入から実索引と再更新まで確認します。実HOMEや既存環境を使わずに検証できる隔離先指定が足りなければ、明示optionまたは検証用子プロセス内だけの環境指定を検討してください。OS全体の環境設定は変更しません。
 6. **Ubuntuの回帰と資料更新。** Ubuntuで実行できるCIまたは作業環境で確認します。Windowsだけで確認した場合はUbuntu未確認と書きます。既知不具合の解消根拠、実装・利用手順・検証表を最終状態に合わせます。
@@ -168,7 +169,7 @@ GitHubの `windows-latest` はWindows 11端末での検証と同一ではあり�
 
 | 工程 | 進める条件 | 問題がある場合 |
 |---|---|---|
-| 受領 | expected HEAD・内容・追跡・cleanが一致 | mainへの代替やmanifest再生成はしない |
+| 受領 | expected HEAD・内容・追跡・cleanが一致 | 別branchへの代替やmanifest再生成はしない |
 | 不具合修正 | 再現→修正後の保全/復旧を確認 | 再現不能の理由を記録し、未確認をPASSにしない |
 | 実provider試験 | 全保存先が専用環境に限定される | 隔離を先に実装し、実HOMEで試さない |
 | Codex接続 | 指定版providerと受入repoが準備済み | 新規セッション操作を明示し、他の修正は継続 |
@@ -213,7 +214,7 @@ provider自身が使うcache、config、言語サーバーの保存先も確認�
 
 ## 8. 完了条件と証拠の残し方
 
-コード判定はCODE_READY_CI_PENDINGです。W-01のnative evidenceには、生成された`.cmd`を実行して子プロセスのPython絶対パスとmatrix指定版を照合するWindows限定testのPASSを使用します。Ubuntu/Windows × Python 3.11/3.13の4構成のCI成功後にREADY_FOR_MAINを判定します。実providerとCodex MCPはmain merge gateではなく、以下のWindows 0.2.0完全受入の別項目です。現在はUNVERIFIEDを維持します。
+上記の検証済みcommitのコード判定はREADY_FOR_MAINです。W-01のnative evidenceには、生成された`.cmd`を実行して子プロセスのPython絶対パスとmatrix指定版を照合するWindows限定testのPASSを使用しました。文書・manifest更新後も最終PR HEADのUbuntu/Windows × Python 3.11/3.13全4構成成功を確認してからマージし、マージ後mainも同じ4構成で確認します。実providerとCodex MCPはmain merge gateではなく、以下のWindows 0.2.0完全受入の別項目です。現在はUNVERIFIEDを維持します。
 
 | 確認対象 | 完了とする証拠 |
 |---|---|

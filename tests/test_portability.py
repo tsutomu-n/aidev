@@ -92,7 +92,7 @@ class FoundationTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
-        self.root = Path(self.tmp.name)
+        self.root = Path(self.tmp.name).resolve()
         self.config = self.root / 'host/foundation.json'
         self.pythons = {}
         for p, (name, _) in aidev.PROVIDERS.items():

@@ -10,14 +10,14 @@
     "platform_support.py": "efd6e1dd80c332c39b09f4491c46f2104f9b5f14f5162e7dc65c07361b64728f",
     "provider_probe.py": "60e678c549258bc309322cdf2661cb375ef32dcc90c4859803190f0dff894256",
     "provider_build.py": "9a66675768ae52cc20a8735c615f33c108e2d5b61cb41b822701caa2f7b7134e",
-    "README.md": "56457e7eb12730cf8af96f85286529c96ec8fbf093768073aea08bb5a5a7fd98",
-    "STATUS.md": "343196ab6fb98d2985616f1cbfeb6cec59c5106a74a0ae80a999d43c4935f897",
+    "README.md": "7641b8812dfe972ac36604fc0315e620f8b99eb1a992828da394bc1ba35e2935",
+    "STATUS.md": "73ac2f278b510692467adf583a35be38c1dd2659c2043f0ba49814f41ae942c6",
     "TECHNICAL.md": "c42145acc8723f36ccbcb67bfb94fec5fd997ec20d2c016b15b71f76dd75a51b",
     "USER_GUIDE.md": "69b3477f540bc559ae9fa5b557f129c2f0b1c5b94a9a945457cedb1ea6b768e8",
-    "WINDOWS.md": "1acc44a405bd9eb0768aa2669f314ca8e3e1d1ff7be41dd38794e726a05b5e17",
-    "WINDOWS_HANDOFF.md": "3dfde43e18d6298c2755ae831ee70d24715d7dfc1f15783ddfbe72da387577d9",
-    "tests/test_aidev.py": "34dc1d27a9ade3f8f377498f85196d2e1e58d6280baa436533ce72cd36003268",
-    "tests/test_portability.py": "7a613d11af36865603b80ef606380e52ad959949a41983ba6d076bba9a0d2793",
+    "WINDOWS.md": "bfd252c87c8e043001b0e747b5db41f11e3868724b4ba44e05fb548783e5e41e",
+    "WINDOWS_HANDOFF.md": "4b597caacc157b083654b35f898992e309a7d40174829a6d37267b08aed4cfc4",
+    "tests/test_aidev.py": "84d2373d961bb828981f0c88c9803fd60fa73dfdec97a9c589b144e08c899465",
+    "tests/test_portability.py": "34adabfc15308223a4a3337d34e681a0597609168fbb06e9c5a41fc333814353",
     "tools/windows_handoff.py": "249a03a4a3795a165d7118ddff74d841bd7de57f15f6c4dca0c60a33883fbc09"
   }
 }
