@@ -27,9 +27,9 @@ Ubuntu側の作業ソースは [/home/tn/projects/aidev](/home/tn/projects/aidev
 | ソース版 | 0.2.0。Windows対応候補の実装がある |
 | Ubuntu回帰テスト | Python 3.13.7で42件中40件成功、Windows専用junctionとW-01 native cmd testの2件skip |
 | W-01〜W-03 | source修正済み、判定CODE_READY_CI_PENDING。Windows 11実機受入は未実施 |
-| Windows API・cmdランチャー | 実装あり、Windows実機での実行結果なし |
+| Windows API・cmdランチャー | 修正前CIのWindows 2構成でW-01 native cmd・junction・排他・子孫終了が成功。Windows 11実機は未確認 |
 | 実provider | Windowsでの導入・解析・更新・接続は未確認 |
-| GitHub Actions | Ubuntu/Windows × Python 3.11/3.13の定義あり、今回の変更のremote実行結果なし |
+| GitHub Actions | [修正前CI](https://github.com/tsutomu-n/aidev/actions/runs/35083256979) はUbuntu 2構成成功・Windows 2構成失敗。fixtureルート正規化後の4構成は未確認 |
 | 公開元のbase commit | `238c0f3d6312915a8bc8c48784b309b21463eaa8`。このcommitだけではWindows対応差分は入らない |
 
 既存のWindows操作案は [/home/tn/projects/aidev/WINDOWS.md](WINDOWS.md)、実装契約は [/home/tn/projects/aidev/TECHNICAL.md](TECHNICAL.md)、検証状態は [/home/tn/projects/aidev/STATUS.md](STATUS.md) にあります。操作案より、この資料の既知不具合と修正順序を先に確認してください。

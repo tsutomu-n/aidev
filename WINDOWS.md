@@ -2,7 +2,7 @@
 
 aidev 0.2.0にはWindows用のロック、子プロセス管理、インストーラーとprovider登録機能があります。WSL・Ubuntuの承認台帳・管理者権限・シンボリックリンク作成権限を前提にしません。**この変更を作成した環境はUbuntuです。Windows実機と実providerを通した受入は未確認です。** 以下は実機で確認しながら進める手順です。
 
-**開発引き継ぎ：W-01〜W-03のsource修正は未commit差分で完了していますが、Windows実機受入は未実施です。** Windows側で検証する場合は、ソースに含む [/home/tn/projects/aidev/WINDOWS_HANDOFF.md](WINDOWS_HANDOFF.md) の受入表から始めてください。
+**開発引き継ぎ：W-01〜W-03のsource修正はcommit済みです。Windows CIでW-01の実cmd起動は成功しましたが、fixture修正後の全体CIとWindows 11実機受入は未確認です。** Windows側で検証する場合は、ソースに含む [/home/tn/projects/aidev/WINDOWS_HANDOFF.md](WINDOWS_HANDOFF.md) の受入表から始めてください。
 
 ## 1. 必要なものを確認する
 

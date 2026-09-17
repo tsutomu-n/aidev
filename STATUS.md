@@ -2,7 +2,7 @@
 
 入口：[/home/tn/projects/aidev/README.md](README.md) ／ 操作手順：[/home/tn/projects/aidev/USER_GUIDE.md](USER_GUIDE.md)
 
-作業ソースのバージョンは `0.2.0` です。現在のコード判定は **CODE_READY_CI_PENDING** です。remote CIのUbuntu/Windows × Python 3.11/3.13が未実行のため、**READY_FOR_MAIN** ではありません。既存環境への導入とWindows実機受入は行っていません。各環境の導入版は `aidev --version` で確認してください。ソースの取得やGitへの公開だけでは、既存インストールは更新されません。
+作業ソースのバージョンは `0.2.0` です。現在のコード判定は **CODE_READY_CI_PENDING** です。[修正前のCI](https://github.com/tsutomu-n/aidev/actions/runs/35083256979) はUbuntu 2構成が成功し、Windows 2構成がfixtureのパス不整合で失敗しました。fixtureルートを正規化した今回の変更は4構成のCI待ちで、**READY_FOR_MAIN** ではありません。既存環境への導入とWindows 11実機受入は行っていません。各環境の導入版は `aidev --version` で確認してください。ソースの取得やGitへの公開だけでは、既存インストールは更新されません。
 
 ## source修正済み・引き継ぎ
 
@@ -28,7 +28,7 @@ W-02/W-03の再現はUbuntu上でWindowsのファイル処理分岐を用いた�
 - initのdry-run/timeout、doctorのjson、setupの明示登録、installerのupgradeを実装・CLI helpと照合しています。
 - 0.2.0のWindows実機、実providerによる初期化・更新・接続・自然文照会の一連の受入は未実施です。
 - installerの一時環境での導入・同版再実行・更新、旧4ファイル形式からの移行、利用者変更保全は成功。WindowsレイアウトはUbuntu上でもfixture検査済みですが、cmd実行・Job Object・Windows排他ロックはWindows実機での確認が必要です。
-- Ubuntu/Windows × Python 3.11/3.13のGitHub Actionsを追加しました。remoteでの実行結果はまだありません。
+- Ubuntu/Windows × Python 3.11/3.13のGitHub Actionsを実行済みです。修正前はWindows 2構成が失敗し、今回のfixture修正後の結果は未確認です。
 
 ローカルにPython 3.11がないことは失敗条件にしません。Ubuntu Python 3.11とWindows Python 3.11/3.13はPENDING CIです。必要な4構成のCI成功後にREADY_FOR_MAINを判定します。Windows実providerとCodex MCPはmain merge gateに含めず、Windows 0.2.0完全受入の別項目としてUNVERIFIEDを維持します。
 

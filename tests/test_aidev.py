@@ -24,7 +24,7 @@ class InitTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
-        self.root = Path(self.tmp.name)
+        self.root = Path(self.tmp.name).resolve()
         subprocess.run(["git", "init", "-q", str(self.root)], check=True)
         self.bins = {name: name for name in aidev.PROVIDERS}
         self.patchers = [patch.object(aidev, "foundation", return_value=self.bins), patch.object(aidev, "probe", side_effect=self.probe), patch.object(aidev, "provider_python", return_value=Path(sys.executable))]
