@@ -4,15 +4,15 @@
 
 ## 0.3.0 Terrain統合
 
-現行sourceは **0.3.0 / CODE_READY_RUNTIME_CI_PENDING**。base mainは `b1bbe5194977ad2296c133656f0978a0812e1c60`、作業branchは `feat/terrain-integration` です。ローカル実装・検証までで、push・PR・merge・release・通常利用環境への反映は行っていません。下記0.2.0の過去CI成功を0.3.0のCI結果とは扱いません。
+現行sourceは **0.3.0 / NOT_READY**。base mainは `b1bbe5194977ad2296c133656f0978a0812e1c60`、作業branchは `feat/terrain-integration` です。実装commit `356143979fc9c2c4105db4637294f15f2e1a2ec6` をpushし、Python 4-matrixは成功しました。Terrain Windows CIはclean upstreamのtest harnessコンパイル失敗で停止しました。PR・merge・release・通常利用環境への反映は行っていません。
 
 | 受入項目 | 結果と範囲 |
 |---|---|
 | 既存42 tests | UbuntuのPython 3.11.14 / 3.13.7で各40成功・Windows専用2skip |
 | Terrain追加26 tests | 両Pythonで26成功。dry-run/doctor書込みなし、gating、実Git worktree、source競合、backup、manual AGENTS、秘密ファイル候補、runtime hash/approval、別process groupの子孫終了を含む |
 | 合計 | 両Pythonで68件中66成功・2skip |
-| Ubuntu 3.11 / 3.13 CI | 今回のbranchは未push、CI未実行。上記はローカル実測 |
-| Windows 3.11 / 3.13 CI | 未実行。既存4-matrix workflowがTerrain testsも収集する |
+| Ubuntu 3.11 / 3.13 CI | Python 3.11.16 / 3.13.15で各68件中66成功・Windows専用2skip |
+| Windows 3.11 / 3.13 CI | Python 3.11.9 / 3.13.15で各68件中66成功・Unix専用2skip。既存42件は41成功・1skip、Terrain26件は25成功・1skip |
 | Terrain upstream | clean 0.9.5、SHA `8d888ae13a6b1253406cac379c8eb30037c96862` を確認 |
 | patch適用 | 別clean cloneへ `git apply --check` 成功。対象は下記3ファイルだけ |
 | Rust focused tests | context recovery 3、OpenAPI ignore 5、ACP mode/JSON stdio 2の計10成功 |
@@ -20,14 +20,24 @@
 | runtime install/setup | 隔離data homeでclean local sourceからbuild・content-addressed配置・承認登録まで成功。既存binary setupもbehavior smoke後に登録成功 |
 | runtime behavior | version、register隔離、scan/pack、ignored OpenAPI排除、正規OpenAPI保存、repair-contextのpath/H2/Unicode、read tools成功 |
 | repo workflow | 実runtimeのinit再利用、dirty入力後のrefresh、doctor、同名slugの2 worktreeでread-context/grep-pack/read-pack-fileの分離成功 |
-| Windows Terrain build/behavior | 未実行。専用workflowを追加済み |
+| Ubuntu Terrain CI | exact SHA・patch適用・3ファイル検査・focused tests 10件・release build・全behavior smoke・worktree隔離PASS。baselineと同名同内容の既知3failureのみ |
+| Windows Terrain build/behavior | CI FAIL。patch前のclean upstream test harnessがコンパイル不能。focused tests・release build・behavior smokeには未到達 |
 | live Codex ACP | **UNVERIFIED**。外部LLM呼出し・認証変更は行っていない |
+
+CI証拠: [Python 4-matrix](https://github.com/tsutomu-n/aidev/actions/runs/35213235246)、[Terrain runtime](https://github.com/tsutomu-n/aidev/actions/runs/35213235406)。いずれも上記実装commitに対する結果です。
+
+Windows失敗の分類は **Terrain upstream test harness / OS差**。Rust 1.98.1、Python 3.13.15の `runtime (windows-latest)` で、test実行前に次の2件が発生しました。
+
+- `crates/terrain-core/src/model_text.rs:416`: `env!("HOME")` のcompile-time環境変数が未定義。
+- `crates/terrain-core/src/shell_path.rs:439`: Unix限定の `std::os::unix::fs::PermissionsExt` を無条件importし、E0433。
+
+clean upstream SHAのコンパイルで発生しており、aidev 0.2.0回帰でも3ファイルpatchによる新規failureでもありません。ただしWindows focused testsは同じtest harnessをcompileするため、baselineだけを省略しても受入を満たしません。Linuxでは再現せず、Windows CIで再現済みです。後者の修正には今回固定した3ファイル外のtestコード変更が必要です。正式patchの範囲・SHAは維持し、失敗のskipや別patchの暗黙適用はしていません。
 
 patch SHA256（LF正規化）: `893efe60ec622ef6741e20d8a81c840124de60b823e842854c789ee9681f40c1`。
 
 patchのsource識別子は `crates/terrain-core/src/assets/agent_context.rs`、`crates/terrain-core/src/ingest/openapi.rs`、`crates/terrain-agent/src/acp.rs`。MarketLens正式patchを使用し、ACP mode伝播と空白を含むbinaryのavailability判定・回帰testを追加しました。MarketLensと既存のdirty Terrain sourceは変更していません。
 
-runtimeのcore/agent/CLI full testsをclean upstreamと比較し、新規failureなしを確認しました。両者の失敗は次のtest名と内容で一致します。件数だけの許容ではありません。
+ローカルUbuntuではruntimeのcore/agent/CLI full testsをclean upstreamと比較し、新規failureなしを確認しました。両者の失敗は次のtest名と内容で一致します。件数だけの許容ではありません。
 
 - `assets::env::status::plan::tests::bundled_tool_reinstall_produces_plan_steps`: bundled CodeGraph/RTK unavailableでreinstall plan stepsが空。
 - `freshness::drift_factors::tests::context_baseline_behind_is_explained_when_pack_is_current`: baseline説明文のassertion不一致。

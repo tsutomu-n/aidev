@@ -148,6 +148,6 @@ AGENTSの既存本文を保全し、aidev管理marker内だけを更新します
 
 Pythonのfixture testsは既存Ubuntu/Windows × Python 3.11/3.13 workflowに含まれます。別のTerrain workflowはUbuntu/Windowsでexact upstream、patch適用範囲、focused Rust tests、release build、behavior smokeを検査します。runtimeのcore/agent/CLI full testsはclean baselineとtest名・failure内容を比較し、新規failureを拒否します。desktop GUIはaidev配布runtimeの対象外です。upstream全体へのformat変更は行いません。
 
-live Codex ACPは通常CIに含めません。実認証・外部送信許可のあるdisposable fixtureで別受入とし、未実施はUNVERIFIEDです。Windows build/CI、通常利用環境への導入、実LLM生成の完了はsource実装と区別し、現在の結果はSTATUSに記録します。
+live Codex ACPは通常CIに含めません。実認証・外部送信許可のあるdisposable fixtureで別受入とし、未実施はUNVERIFIEDです。live受入では生成前後のsource fingerprintとGit statusを保存・比較し、source modificationが0であることを実測します。`INITIAL_AGENT_MODE=read-only` の設定だけではsource不変の証明にしません。Windows build/CI、通常利用環境への導入、実LLM生成の完了はsource実装と区別し、現在の結果はSTATUSに記録します。
 
 submodule入力、symlink/reparse/hardlinkを含む入力・生成先は初版では停止します。read-pack-fileはupstreamの圧縮packに基づく探索であり、live sourceの厳密転記ではありません。自動redaction、watch daemon、Git hook、Litho/SDD自動生成、plugin frameworkはありません。
