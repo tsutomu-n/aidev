@@ -2,7 +2,46 @@
 
 入口：[/home/tn/projects/aidev/README.md](README.md) ／ 操作手順：[/home/tn/projects/aidev/USER_GUIDE.md](USER_GUIDE.md)
 
-作業ソースのバージョンは `0.2.0` です。下記の検証済みcommitのコード判定は **READY_FOR_MAIN** です。fixtureルートを正規化した変更がUbuntu/Windows × Python 3.11/3.13のCI全4構成で成功しました。文書・manifest更新後も最終PR HEADの全4構成成功を確認してからマージします。既存環境への導入とWindows 11実機受入は行っていません。各環境の導入版は `aidev --version` で確認してください。ソースの取得やGitへの公開だけでは、既存インストールは更新されません。
+## 0.3.0 Terrain統合
+
+現行sourceは **0.3.0 / CODE_READY_RUNTIME_CI_PENDING**。base mainは `b1bbe5194977ad2296c133656f0978a0812e1c60`、作業branchは `feat/terrain-integration` です。ローカル実装・検証までで、push・PR・merge・release・通常利用環境への反映は行っていません。下記0.2.0の過去CI成功を0.3.0のCI結果とは扱いません。
+
+| 受入項目 | 結果と範囲 |
+|---|---|
+| 既存42 tests | UbuntuのPython 3.11.14 / 3.13.7で各40成功・Windows専用2skip |
+| Terrain追加26 tests | 両Pythonで26成功。dry-run/doctor書込みなし、gating、実Git worktree、source競合、backup、manual AGENTS、秘密ファイル候補、runtime hash/approval、別process groupの子孫終了を含む |
+| 合計 | 両Pythonで68件中66成功・2skip |
+| Ubuntu 3.11 / 3.13 CI | 今回のbranchは未push、CI未実行。上記はローカル実測 |
+| Windows 3.11 / 3.13 CI | 未実行。既存4-matrix workflowがTerrain testsも収集する |
+| Terrain upstream | clean 0.9.5、SHA `8d888ae13a6b1253406cac379c8eb30037c96862` を確認 |
+| patch適用 | 別clean cloneへ `git apply --check` 成功。対象は下記3ファイルだけ |
+| Rust focused tests | context recovery 3、OpenAPI ignore 5、ACP mode/JSON stdio 2の計10成功 |
+| cargo check / Linux release build | 成功。rustc 1.98.1 / cargo 1.98.1 |
+| runtime install/setup | 隔離data homeでclean local sourceからbuild・content-addressed配置・承認登録まで成功。既存binary setupもbehavior smoke後に登録成功 |
+| runtime behavior | version、register隔離、scan/pack、ignored OpenAPI排除、正規OpenAPI保存、repair-contextのpath/H2/Unicode、read tools成功 |
+| repo workflow | 実runtimeのinit再利用、dirty入力後のrefresh、doctor、同名slugの2 worktreeでread-context/grep-pack/read-pack-fileの分離成功 |
+| Windows Terrain build/behavior | 未実行。専用workflowを追加済み |
+| live Codex ACP | **UNVERIFIED**。外部LLM呼出し・認証変更は行っていない |
+
+patch SHA256（LF正規化）: `893efe60ec622ef6741e20d8a81c840124de60b823e842854c789ee9681f40c1`。
+
+patchのsource識別子は `crates/terrain-core/src/assets/agent_context.rs`、`crates/terrain-core/src/ingest/openapi.rs`、`crates/terrain-agent/src/acp.rs`。MarketLens正式patchを使用し、ACP mode伝播と空白を含むbinaryのavailability判定・回帰testを追加しました。MarketLensと既存のdirty Terrain sourceは変更していません。
+
+runtimeのcore/agent/CLI full testsをclean upstreamと比較し、新規failureなしを確認しました。両者の失敗は次のtest名と内容で一致します。件数だけの許容ではありません。
+
+- `assets::env::status::plan::tests::bundled_tool_reinstall_produces_plan_steps`: bundled CodeGraph/RTK unavailableでreinstall plan stepsが空。
+- `freshness::drift_factors::tests::context_baseline_behind_is_explained_when_pack_is_current`: baseline説明文のassertion不一致。
+- `freshness::drift_factors::tests::different_context_baseline_without_source_drift_is_not_blamed`: source driftなしの説明文のassertion不一致。
+
+coreの修正版は128成功・3失敗、integration testsは7成功。agentは14成功・認証依存のsmoke 1ignored、CLIは0 tests。desktop GUIを含むworkspace全体のfull suiteは実行していません。upstream全体へのformat変更も行っていません。
+
+生成gateはfixtureで確認済みで、live LLM生成は別受入です。context本文の事実性・網羅性は機械validationの保証外です。legacy migrationでdirty入力のlineageを証明できない場合やAGENTSを新たに変更する場合はpackを更新し、contextをstaleとして保持します。migrationだけではLLMを呼びません。submodule、symlink/reparse/hardlink入力、unignoredの代表的秘密ファイル名は初版では停止します。任意の秘密文字列のredactionは保証しません。
+
+0.3.0をREADY_FOR_MAINとするには、このbranchの4-matrix CIとUbuntu/Windows Terrain runtime CIの成功確認が必要です。live ACPをmerge gateに含めず、別受入項目としてUNVERIFIEDを残す方針です。通常利用環境への導入は別の明示操作です。操作・契約は [/home/tn/projects/aidev/TERRAIN.md](TERRAIN.md) を参照してください。
+
+## 0.2.0 Windows回帰の履歴
+
+以下は0.2.0の過去検証です。当時のコード判定はREADY_FOR_MAINで、W-01〜W-03の修正とfixture正規化が全4構成のCIで成功しました。Windows 11実機・実provider・通常利用環境への導入は未確認です。各環境の導入版は `aidev --version` で確認してください。
 
 CIの証拠はcommit `b91bf2c00fb0fd7e6b031b5dbede4fffd02ed991` の [PR検証](https://github.com/tsutomu-n/aidev/actions/runs/35207281491) です。[修正前のCI](https://github.com/tsutomu-n/aidev/actions/runs/35083256979) ではWindows 2構成がfixtureのパス不整合で失敗しました。[/home/tn/projects/aidev/tests/test_aidev.py](tests/test_aidev.py) の `InitTests` と [/home/tn/projects/aidev/tests/test_portability.py](tests/test_portability.py) の `FoundationTests` で、一時ルートを `Path(self.tmp.name).resolve()` に統一しました。安全性assertion・Windows専用テスト・公開API・CLI・設定形式は維持しています。
 

@@ -1,5 +1,7 @@
 # Windows 11側のCodexへの実装引き継ぎ
 
+現行sourceは0.3.0（Terrain任意統合）です。下記0.2.0のWindows回帰履歴を保持しています。追加のTerrain受入・現在の判定は [/home/tn/projects/aidev/TERRAIN.md](TERRAIN.md) と [/home/tn/projects/aidev/STATUS.md](STATUS.md) を確認してください。旧CI成功は0.3.0のWindows build/ACP受入の証拠ではありません。
+
 **目的：aidev 0.2.0のWindows対応候補を、ネイティブWindows 11で検証し、実際に利用できる状態へ仕上げる。** W-01〜W-03のsource修正とfixtureのパス正規化はCI全4構成で成功しました。残る警告を確認し、専用の検証環境で導入と実providerの受入を進めます。現時点でWindows 11対応の完成・受入済みとは判定しません。
 
 ## 1. 最初に決めておく範囲

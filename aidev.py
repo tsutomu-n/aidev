@@ -22,7 +22,7 @@ import tomllib
 
 from platform_support import WINDOWS, child_process, data_home, directory_lock, is_link, stop_process
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 BUNDLE_DIR = Path(__file__).resolve().parent
 PROVIDERS = {"serena": ("serena", "1.7.0"), "graphify": ("graphify", "0.9.55"), "crg": ("code-review-graph", "2.3.8")}
 CAPS = {"symbol_semantics": ["serena"], "architecture_relationships": ["graphify"], "change_impact": ["crg"]}
@@ -658,8 +658,16 @@ def main(argv=None):
         setup.add_argument(f"--{provider}-python", type=Path, required=True, help="provider専用環境のPython絶対パス")
     setup.add_argument("--approve", action="store_true", help="検査した3providerをこの利用者のaidevで使うことを承認して保存")
     setup.add_argument("--replace", action="store_true", help="既存のaidev専用登録を明示的に更新")
+    requested = list(sys.argv[1:] if argv is None else argv)
+    if requested and requested[0] == "terrain":
+        import terrain_provider
+        terrain_provider.add_parser(sub)
+    else:
+        sub.add_parser("terrain", help="任意導入のTerrain knowledge/navigation layer")
     args = parser.parse_args(argv)
     try:
+        if args.command == "terrain":
+            return terrain_provider.dispatch(args)
         if args.command == "setup":
             result = setup_foundation({p: getattr(args, p + "_python") for p in PROVIDERS}, args.approve, args.replace)
             print(js(result), end="")
@@ -690,4 +698,5 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
+    sys.modules.setdefault("aidev", sys.modules[__name__])
     raise SystemExit(main())

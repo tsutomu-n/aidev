@@ -1,4 +1,4 @@
-# aidev 0.2.0 技術仕様
+# aidev 0.3.0 技術仕様
 
 入口：[/home/tn/projects/aidev/README.md](README.md) ／ 操作手順：[/home/tn/projects/aidev/USER_GUIDE.md](USER_GUIDE.md)
 
@@ -81,7 +81,7 @@ Serena等の終了0でも部分失敗の出力を検出します。CRG wrapper�
 
 ## installerの契約
 
-現行installerは9ファイル（本体、probe、build wrapper、OS対応moduleと5件の文書）のhashからrelease識別子を作り、`$HOME/.local/share/aidev/releases` に配置します。このdirectoryは初回導入または旧版からの更新時に作成されます。`installation.json` に収録ファイルhashを記録し、完全なreleaseへUbuntuは入口symlink、WindowsはASCIIのcmdランチャーをatomicに切り替えます。Windowsの保存先設定値は `%LOCALAPPDATA%\aidev` です。補助symlinkの更新を含む全操作が一括transactionという意味ではありません。
+現行installerは13ファイル（既存9ファイルとTerrain用2 modules・patch・操作文書）のhashからrelease識別子を作り、`$HOME/.local/share/aidev/releases` に配置します。このdirectoryは初回導入または旧版からの更新時に作成されます。`installation.json` に収録ファイルhashを記録し、完全なreleaseへUbuntuは入口symlink、WindowsはASCIIのcmdランチャーをatomicに切り替えます。Windowsの保存先設定値は `%LOCALAPPDATA%\aidev` です。補助symlinkの更新を含む全操作が一括transactionという意味ではありません。
 
 `--upgrade` は旧0.1.0の既知hash、または管理releaseのmanifestと実体が一致する場合に進みます。release manifestには実行Pythonの絶対パス・検証済み版・launcher形式も含み、Windows launcherはそのPythonをUTF-8 cmdから直接起動します。`py` / PATHへの実行時fallbackはありません。ロック取得後と公開直前にentryの種類・内容・link先を再照合し、初回は存在しない宛先への作成だけを許可します。更新は旧entryを専用退避先へrenameしてから、空の宛先へ公開します。競合時は上書きせず停止します。
 
@@ -106,3 +106,9 @@ python3 -B install.py --help
 登録はCLIとPythonのpath/hashとprovider版を確認します。providerの依存ファイル全体をhash固定する仕組みではありません。専用登録を使うrepoのMCP commandは登録済みexeの絶対パスです。Windowsではvenvの `Scripts/python.exe` をそのまま使い、実体解決によってvenvを失わないようにします。JSON/TOMLとprovider JSONの文字コードはUTF-8です。Windowsのjunction/reparse pointも設定・出力先のリンク拒否対象に含めます。
 
 Windowsの子プロセスはJob Objectへの所属確認後にproviderを起動し、Jobを閉じる際に子孫も終了します。所属失敗時に無管理のprovider実行へfallbackしません。Ubuntuもtimeout時は親の終了後に残る子孫へSIGKILLを送ります。Windowsのlauncherは導入時に検証したPython絶対パスを使用し、code pageを退避・UTF-8へ切替・復元して引数と終了コードを保全します。
+
+## Terrain namespace
+
+`aidev.py`はTerrain commandの場合だけ専用moduleをimportします。`terrain_runtime.py`がpin・patch identity・download/build・approval/hash・behavior smoke、`terrain_provider.py`がrepo-local registry・fingerprint・AGENTS・backup・生成gate・doctor・read toolsを担当します。generic plugin frameworkは導入していません。
+
+Terrain doctorは既存doctorと異なりprovider processを一切起動せず、保存runtime recordと現在のhashをPythonで検査します。生成処理は既存directory lock/process group/Job Objectを再利用し、Terrain起動時のHOME副作用を一時HOMEへ隔離します。入力はGitのnonignored列挙と実内容hash、出力はpack/context/meta hashで照合します。具体的なschema・CLI・migrationと制限は [/home/tn/projects/aidev/TERRAIN.md](TERRAIN.md) を参照してください。

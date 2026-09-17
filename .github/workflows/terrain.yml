@@ -1,0 +1,32 @@
+name: Terrain runtime contract
+on:
+  push:
+    paths: ['aidev.py', 'platform_support.py', 'terrain_*.py', 'terrain-0.9.5-aidev.patch', 'tests/test_terrain.py', 'tools/terrain_ci.py', '.github/workflows/terrain.yml']
+  pull_request:
+    paths: ['aidev.py', 'platform_support.py', 'terrain_*.py', 'terrain-0.9.5-aidev.patch', 'tests/test_terrain.py', 'tools/terrain_ci.py', '.github/workflows/terrain.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  runtime:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Pin upstream, compare baseline, build and approve disposable runtime
+        run: python -X utf8 -B tools/terrain_ci.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: terrain-${{ matrix.os }}
+          path: |
+            verification/terrain-ci/*.log
+            verification/terrain-ci/*.json

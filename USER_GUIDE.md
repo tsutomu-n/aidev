@@ -2,7 +2,7 @@
 
 入口へ戻る：[/home/tn/projects/aidev/README.md](README.md)
 
-ターミナルでコマンドを実行できる方が、導入から解析準備、日常の更新、障害の切り分けまで進めるための手順です。ソース0.2.0を基準にしています。
+ターミナルでコマンドを実行できる方が、導入から解析準備、日常の更新、障害の切り分けまで進めるための手順です。ソース0.3.0を基準にしています。
 
 Windows 11の導入・登録は [/home/tn/projects/aidev/WINDOWS.md](WINDOWS.md) を先に進めてください。以下のshell例はUbuntu向けです。
 
@@ -86,7 +86,7 @@ python3 /home/tn/projects/aidev/install.py
 /home/tn/.local/bin/aidev --version
 ```
 
-期待結果はインストール完了と `aidev 0.2.0` です。入口は `/home/tn/.local/bin/aidev`、管理先は `/home/tn/.local/share/aidev` です。既存コマンドがあるというエラーなら、削除せず次の更新手順を確認します。
+期待結果はインストール完了と `aidev 0.3.0` です。入口は `/home/tn/.local/bin/aidev`、管理先は `/home/tn/.local/share/aidev` です。既存コマンドがあるというエラーなら、削除せず次の更新手順を確認します。
 
 続いて短い名前で実行できるか確認します。
 
@@ -172,7 +172,7 @@ aidev doctor
 
 再び `LOCAL_READY` ならローカル準備は完了です。`WAITING_FOR_CODE` は対象コード追加待ちなので、コードを用意してから再実行します。別の表示なら [結果一覧](#results) を確認してください。
 
-初回Serena解析では言語サーバーの取得が発生する場合があります。完全オフライン動作は保証していません。aidevの索引構築は外部LLM抽出・embeddingを行いません。Codex利用時の通信は別です。
+初回Serena解析では言語サーバーの取得が発生する場合があります。完全オフライン動作は保証していません。従来3providerの索引構築は外部LLM抽出・embeddingを行いません。Codex利用時の通信は別です。
 
 ### 3.4 変更内容を確認する
 
@@ -310,3 +310,9 @@ Codexの実照会：未実施 / 成功 / 失敗（内容）
 providerの内部契約や保存先は [/home/tn/projects/aidev/TECHNICAL.md](TECHNICAL.md)、受入の未確認事項は [/home/tn/projects/aidev/STATUS.md](STATUS.md) を参照してください。
 
 入口へ戻る：[/home/tn/projects/aidev/README.md](README.md)
+
+## Terrainを任意導入する
+
+Terrainは3providerと独立したknowledge/navigation layerです。runtimeを明示登録・build後、対象repoで `aidev terrain init --dry-run` → `aidev terrain init` → `aidev terrain doctor` を実行します。コード変更後は `aidev terrain refresh`。Codex ACPによるLLM生成が必要な場合だけinit/refreshへ `--build-context` を付けます。
+
+read tools、tracked/ignored、既存assetsのmigration、runtime登録・rebuildは [/home/tn/projects/aidev/TERRAIN.md](TERRAIN.md) にまとめています。

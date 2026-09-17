@@ -1,0 +1,529 @@
+diff --git a/crates/terrain-agent/src/acp.rs b/crates/terrain-agent/src/acp.rs
+index 9435fb9..dc92403 100644
+--- a/crates/terrain-agent/src/acp.rs
++++ b/crates/terrain-agent/src/acp.rs
+@@ -46,9 +46,8 @@ pub fn acp_spawn_command(settings: &AcpSettings) -> String {
+ }
+
+ pub fn acp_available(settings: &AcpSettings) -> bool {
+-    let cmd = acp_spawn_command(settings);
+-    let binary = cmd.split_whitespace().next().unwrap_or(DEFAULT_ACP_BINARY);
+-    opencode_available(binary)
++    let (binary, _) = acp_command_parts(settings);
++    opencode_available(&binary)
+ }
+
+ pub fn default_ask_acp_skill_dir() -> PathBuf {
+@@ -176,6 +175,8 @@ pub(crate) fn acp_config_json(
+         .unwrap_or("acp-agent")
+         .to_string();
+
++    let mut env = env.clone();
++    inherit_initial_agent_mode(&mut env, std::env::var("INITIAL_AGENT_MODE").ok());
+     let env_arr: Vec<serde_json::Value> = env
+         .iter()
+         .map(|(k, v)| serde_json::json!({ "name": k, "value": v }))
+@@ -231,3 +232,60 @@ pub fn build_acp_config(
+ ) -> ! {
+     panic!("ACP support not enabled (rebuild with opencode feature)")
+ }
++
++// Explicit per-request environment takes precedence over the parent default.
++fn inherit_initial_agent_mode(env: &mut HashMap<String, String>, mode: Option<String>) {
++    if let Some(mode) = mode {
++        env.entry("INITIAL_AGENT_MODE".into()).or_insert(mode);
++    }
++}
++
++#[cfg(test)]
++mod aidev_acp_tests {
++    use super::*;
++
++    #[test]
++    #[cfg(feature = "opencode")]
++    fn parent_mode_reaches_stdio_config_without_splitting_binary() {
++        let previous = std::env::var_os("INITIAL_AGENT_MODE");
++        unsafe { std::env::set_var("INITIAL_AGENT_MODE", "read-only"); }
++        let settings = AcpSettings {
++            binary: Some(r"C:\Program Files\Agent\codex-acp.exe".into()),
++            args: Some(String::new()),
++            command: None,
++            auto_approve: Some(false),
++            ..Default::default()
++        };
++        let config = build_acp_config(&settings, Some("fixture"), HashMap::new());
++        unsafe {
++            match previous {
++                Some(value) => std::env::set_var("INITIAL_AGENT_MODE", value),
++                None => std::env::remove_var("INITIAL_AGENT_MODE"),
++            }
++        }
++        let json: serde_json::Value = serde_json::from_str(&config.command).unwrap();
++        assert_eq!(json["command"], settings.binary.unwrap());
++        assert_eq!(json["args"], serde_json::json!([]));
++        assert!(!config.auto_approve);
++        assert!(json["env"].as_array().unwrap().iter().any(|item|
++            item["name"] == "INITIAL_AGENT_MODE" && item["value"] == "read-only"));
++    }
++
++    #[test]
++    fn initial_agent_mode_propagation() {
++        let mut env = HashMap::new();
++        inherit_initial_agent_mode(&mut env, None);
++        assert!(!env.contains_key("INITIAL_AGENT_MODE"));
++        inherit_initial_agent_mode(&mut env, Some("read-only".into()));
++        assert_eq!(env["INITIAL_AGENT_MODE"], "read-only");
++        inherit_initial_agent_mode(&mut env, Some("other".into()));
++        assert_eq!(env["INITIAL_AGENT_MODE"], "read-only");
++        let binary = r"C:\Program Files\Agent\codex-acp.exe";
++        let args = vec!["literal argument".to_string()];
++        let json: serde_json::Value = serde_json::from_str(&acp_config_json(binary, &args, &env)).unwrap();
++        assert_eq!(json["command"], binary);
++        assert_eq!(json["args"][0], "literal argument");
++        assert!(json["env"].as_array().unwrap().iter().any(|item|
++            item["name"] == "INITIAL_AGENT_MODE" && item["value"] == "read-only"));
++    }
++}
+diff --git a/crates/terrain-core/src/assets/agent_context.rs b/crates/terrain-core/src/assets/agent_context.rs
+index 5bcdc6a..aebd482 100644
+--- a/crates/terrain-core/src/assets/agent_context.rs
++++ b/crates/terrain-core/src/assets/agent_context.rs
+@@ -14,10 +14,14 @@ use crate::paths::KnowledgePaths;
+ use crate::preset_skills::default_agent_arch_skill_dir;
+ use crate::schema::{AgentContextMeta, AgentContextStatus, DocFrontmatter, DocType};
+
++fn context_section_count(body: &str) -> usize {
++    body.lines().filter(|line| line.starts_with("## ")).count()
++}
++
+ /// Minimum shape for a usable `agent/context.md` body (without frontmatter).
+ pub fn context_body_ready(body: &str) -> bool {
+     let body = body.trim();
+-    body.len() >= 500 && body.matches("\n## ").count() >= 4
++    body.chars().count() >= 500 && context_section_count(body) >= 4
+ }
+
+ pub fn agent_context_ready(paths: &KnowledgePaths, project_slug: &str) -> bool {
+@@ -136,7 +140,7 @@ pub fn read_agent_context_status(paths: &KnowledgePaths, project_slug: &str) ->
+     };
+
+     let excerpt = Some(doc.body.chars().take(600).collect::<String>());
+-    let section_count = doc.body.matches("\n## ").count();
++    let section_count = context_section_count(&doc.body);
+
+     let generated_at = std::fs::metadata(&path)
+         .ok()
+@@ -377,6 +381,66 @@ fn normalize_context_headings(body: &str) -> String {
+     re.replace_all(body, "## ").into_owned()
+ }
+
++/// Make standalone references to this repository portable, leaving siblings and URLs intact.
++fn normalize_context_repo_paths(body: &str, repo_path: &str) -> String {
++    let mut root = repo_path.replace('\\', "/");
++    let windows_absolute = root.as_bytes().first().is_some_and(u8::is_ascii_alphabetic)
++        && root.as_bytes().get(1..3) == Some(b":/");
++    if !root.starts_with('/') && !windows_absolute {
++        let Ok(absolute) = std::fs::canonicalize(repo_path) else {
++            return body.to_string();
++        };
++        root = absolute.to_string_lossy().replace('\\', "/");
++    }
++    // Windows canonicalization uses a verbatim prefix; documents use ordinary paths.
++    if let Some(unc) = root.strip_prefix("//?/UNC/") {
++        root = format!("//{unc}");
++    } else if let Some(plain) = root.strip_prefix("//?/") {
++        root = plain.to_string();
++    }
++    let root = root.trim_end_matches('/');
++    if root.is_empty() {
++        return body.to_string();
++    }
++    let root_pattern = root
++        .split('/')
++        .map(regex::escape)
++        .collect::<Vec<_>>()
++        .join(r"[/\\]");
++    let re = regex::Regex::new(&format!(
++        r#"{root_pattern}(?:[/\\][^\s`"'<>\[\](){{}}|,;]*)?"#
++    ))
++    .expect("context repository path regex");
++    re.replace_all(body, |caps: &regex::Captures<'_>| {
++        let matched = caps.get(0).expect("repository path match");
++        let before = &body[..matched.start()];
++        let after = &body[matched.end()..];
++        let starts_reference = before.chars().next_back().is_none_or(|c| {
++            c.is_whitespace() || matches!(c, '`' | '"' | '\'' | '(' | '[' | '{' | '<' | '=' | '|')
++        });
++        let ends_reference = after.chars().next().is_none_or(|c| {
++            c.is_whitespace()
++                || matches!(c, '`' | '"' | '\'' | ')' | ']' | '}' | '>' | ',' | ';' | '|')
++        });
++        // A query parameter can place '=' immediately before the path inside a URL.
++        let in_url = before
++            .split_whitespace()
++            .next_back()
++            .is_some_and(|token| token.contains("://"));
++        if !starts_reference || !ends_reference || in_url {
++            return matched.as_str().to_string();
++        }
++        let portable = matched.as_str().replace('\\', "/");
++        let relative = portable[root.len()..].trim_start_matches('/');
++        if relative.is_empty() {
++            ".".to_string()
++        } else {
++            relative.to_string()
++        }
++    })
++    .into_owned()
++}
++
+ /// Persist generated agent context markdown and sidecar meta.
+ pub fn write_agent_context(
+     paths: &KnowledgePaths,
+@@ -387,6 +451,7 @@ pub fn write_agent_context(
+     std::fs::create_dir_all(paths.agent_pack_dir(project_slug))?;
+     let path = paths.agent_context_main(project_slug);
+     let body = normalize_context_headings(&prepare_model_markdown(body));
++    let body = normalize_context_repo_paths(&body, repo_path);
+     let (body, _size_capped) = crate::assets::enforce_context_max_size(
+         &body,
+         crate::assets::AGENT_CONTEXT_SAVE_MAX_CHARS,
+@@ -415,8 +480,8 @@ pub fn write_agent_context(
+         repo_path: stored_repo_path(Path::new(repo_path)),
+         output_file: "context.md".into(),
+         generated_at: Utc::now().to_rfc3339(),
+-        section_count: body.matches("\n## ").count(),
+-        char_count: body.len(),
++        section_count: context_section_count(&body),
++        char_count: body.chars().count(),
+         baseline_git_head: git_snapshot(repo_path).head,
+         language: Some(crate::language::current_language().code().to_string()),
+     };
+@@ -449,8 +514,8 @@ pub fn refresh_agent_context_baseline(
+             .as_ref()
+             .map(|m| m.generated_at.clone())
+             .unwrap_or_else(|| Utc::now().to_rfc3339()),
+-        section_count: body.matches("\n## ").count(),
+-        char_count: body.len(),
++        section_count: context_section_count(&body),
++        char_count: body.chars().count(),
+         baseline_git_head: git_snapshot(repo_path).head,
+         // Re-stamping does not change the document, so keep its language.
+         language: previous.and_then(|m| m.language),
+@@ -459,6 +524,199 @@ pub fn refresh_agent_context_baseline(
+     Ok(meta)
+ }
+
++#[cfg(test)]
++mod agent_context_recovery_tests {
++    use super::*;
++
++    #[test]
++    fn counts_first_heading_and_unicode_characters() {
++        let headings = crate::language::ResolvedLanguage::En.agent_context_sections();
++        let body = headings.map(|title| format!("## {title}\n")).join("\n");
++        assert_eq!(context_section_count(&body), 7);
++        assert_eq!(
++            context_section_count("## First\n### Child\ninline ## Text\n## Last"),
++            2
++        );
++
++        let short = format!("{body}{}", "語".repeat(180));
++        assert!(short.len() >= 500);
++        assert!(short.chars().count() < 500);
++        assert!(!context_body_ready(&short));
++        let ready = format!("{short}{}", "語".repeat(500 - short.chars().count()));
++        assert_eq!(ready.chars().count(), 500);
++        assert!(context_body_ready(&ready));
++    }
++
++    #[test]
++    fn normalizes_repo_paths_without_touching_siblings_or_urls() {
++        let root = "/home/example/repo";
++        for (input, expected) in [
++            ("/home/example/repo", "."),
++            ("`/home/example/repo/`", "`.`"),
++            ("`/home/example/repo/src/日本.py`", "`src/日本.py`"),
++            (
++                "[source](/home/example/repo/src/a.py)",
++                "[source](src/a.py)",
++            ),
++            (r"/home/example/repo\src\a.py", "src/a.py"),
++            (
++                "/home/example/repo-other/src/a.py",
++                "/home/example/repo-other/src/a.py",
++            ),
++            (
++                "/home/example/repo.bak/src/a.py",
++                "/home/example/repo.bak/src/a.py",
++            ),
++            (
++                "/prefix/home/example/repo/src/a.py",
++                "/prefix/home/example/repo/src/a.py",
++            ),
++            (
++                "https://example.test/home/example/repo/src/a.py",
++                "https://example.test/home/example/repo/src/a.py",
++            ),
++            (
++                "file:///home/example/repo/src/a.py",
++                "file:///home/example/repo/src/a.py",
++            ),
++            (
++                "https://example.test/?path=/home/example/repo/src/a.py",
++                "https://example.test/?path=/home/example/repo/src/a.py",
++            ),
++        ] {
++            assert_eq!(normalize_context_repo_paths(input, root), expected, "{input}");
++        }
++        assert_eq!(
++            normalize_context_repo_paths(
++                concat!(
++                    r"`C:\Users\example\repo\src\a.py` C:/Users/example/repo ",
++                    r"C:\Users\example\repo-other\a.py"
++                ),
++                r"C:\Users\example\repo\",
++            ),
++            r"`src/a.py` . C:\Users\example\repo-other\a.py"
++        );
++        assert_eq!(
++            normalize_context_repo_paths(r"C:\repo\src\a.py", r"\\?\C:\repo"),
++            "src/a.py"
++        );
++        assert_eq!(
++            normalize_context_repo_paths(
++                r"\\server\share\repo\src\a.py",
++                r"\\?\UNC\server\share\repo",
++            ),
++            "src/a.py"
++        );
++
++        let cwd = std::env::current_dir().unwrap();
++        let temp = tempfile::tempdir_in(&cwd).unwrap();
++        let relative = temp.path().strip_prefix(&cwd).unwrap();
++        let input = format!("`{}/src/a.py`", temp.path().display());
++        assert_eq!(
++            normalize_context_repo_paths(&input, &relative.display().to_string()),
++            "`src/a.py`"
++        );
++        let current_path = format!("`{}/src/a.py`", cwd.display());
++        assert_eq!(normalize_context_repo_paths(&current_path, "."), "`src/a.py`");
++        let missing = relative.join("missing");
++        assert_eq!(
++            normalize_context_repo_paths(&input, &missing.display().to_string()),
++            input
++        );
++    }
++
++    #[test]
++    fn writer_and_restamp_save_correct_paths_and_metadata_without_llm() {
++        let _lock = crate::registry::registry_test_lock();
++        let temp = tempfile::tempdir().unwrap();
++        struct RegistryEnv(Option<std::ffi::OsString>);
++        impl Drop for RegistryEnv {
++            fn drop(&mut self) {
++                unsafe {
++                    if let Some(previous) = &self.0 {
++                        std::env::set_var("TERRAIN_REGISTRY_FILE", previous);
++                    } else {
++                        std::env::remove_var("TERRAIN_REGISTRY_FILE");
++                    }
++                }
++            }
++        }
++        let _registry_env = RegistryEnv(std::env::var_os("TERRAIN_REGISTRY_FILE"));
++        unsafe {
++            std::env::set_var("TERRAIN_REGISTRY_FILE", temp.path().join("registry.json"));
++        }
++        let repo = temp.path().join("repo");
++        std::fs::create_dir(&repo).unwrap();
++        for args in [
++            vec!["init", "--quiet"],
++            vec![
++                "-c",
++                "user.name=Recovery Test",
++                "-c",
++                "user.email=recovery@example.test",
++                "-c",
++                "commit.gpgsign=false",
++                "-c",
++                "core.hooksPath=/dev/null",
++                "commit",
++                "--quiet",
++                "--allow-empty",
++                "-m",
++                "recovery fixture",
++            ],
++        ] {
++            let output = std::process::Command::new("git")
++                .args(args)
++                .current_dir(&repo)
++                .output()
++                .unwrap();
++            assert!(
++                output.status.success(),
++                "{}",
++                String::from_utf8_lossy(&output.stderr)
++            );
++        }
++        let repo_path = repo.display().to_string();
++        let slug = "agent-context-recovery";
++        crate::registry::register_project(slug, &repo_path).unwrap();
++        let paths = KnowledgePaths::new();
++        let sibling = format!("{repo_path}-sibling/src/keep.py");
++        let body = crate::language::ResolvedLanguage::En
++            .agent_context_sections()
++            .map(|title| format!("## {title}\n\n{}\n", "日本語の確認。".repeat(20)))
++            .join("\n");
++        let input = format!(
++            "{body}\nRoot: `{repo_path}`\nCode: `{repo_path}/src/main.py`\nSibling: `{sibling}`\n"
++        );
++        let meta = write_agent_context(&paths, slug, &repo_path, &input).unwrap();
++        let doc = read_doc(paths.agent_context_main(slug)).unwrap();
++        assert_eq!(context_section_count(&doc.body), 7);
++        assert_eq!(meta.section_count, 7);
++        assert_eq!(meta.char_count, doc.body.chars().count());
++        assert!(doc.body.contains("Root: `.`"));
++        assert!(doc.body.contains("Code: `src/main.py`"));
++        assert!(doc.body.contains(&format!("Sibling: `{sibling}`")));
++        assert!(!doc.body.contains(&format!("`{repo_path}`")));
++        assert!(!doc.body.contains(&format!("{repo_path}/")));
++        assert_eq!(doc.frontmatter.source.as_deref(), Some("."));
++        assert_eq!(meta.repo_path, ".");
++        assert!(meta.baseline_git_head.is_some());
++        assert_eq!(meta.baseline_git_head, git_snapshot(&repo_path).head);
++        assert_eq!(read_agent_context_status(&paths, slug).section_count, 7);
++        assert!(read_agent_context_status(&paths, slug).ready);
++
++        let original = std::fs::read(paths.agent_context_main(slug)).unwrap();
++        let restamped = refresh_agent_context_baseline(&paths, slug, &repo_path).unwrap();
++        assert_eq!(std::fs::read(paths.agent_context_main(slug)).unwrap(), original);
++        assert_eq!(restamped.section_count, 7);
++        assert_eq!(restamped.char_count, doc.body.chars().count());
++        assert_eq!(restamped.generated_at, meta.generated_at);
++        assert_eq!(restamped.language, meta.language);
++        assert_eq!(restamped.baseline_git_head, meta.baseline_git_head);
++        assert_eq!(restamped.repo_path, meta.repo_path);
++    }
++}
++
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+diff --git a/crates/terrain-core/src/ingest/openapi.rs b/crates/terrain-core/src/ingest/openapi.rs
+index 475fab1..2e7cf58 100644
+--- a/crates/terrain-core/src/ingest/openapi.rs
++++ b/crates/terrain-core/src/ingest/openapi.rs
+@@ -1,7 +1,7 @@
+ use std::path::{Path, PathBuf};
+
++use ignore::WalkBuilder;
+ use regex::Regex;
+-use walkdir::WalkDir;
+
+ use crate::doc::write_doc;
+ use crate::error::Result;
+@@ -125,11 +125,22 @@ fn find_openapi_specs(repo: &Path) -> Vec<PathBuf> {
+     let name_re = Regex::new(r"(?i)openapi\.(ya?ml|json)$").unwrap();
+     let mut specs = Vec::new();
+
+-    for entry in WalkDir::new(repo)
+-        .into_iter()
+-        .filter_map(|e| e.ok())
+-        .filter(|e| e.file_type().is_file())
+-    {
++    let walker = WalkBuilder::new(repo)
++        .hidden(false)
++        .git_ignore(true)
++        .git_global(true)
++        .git_exclude(true)
++        .parents(true)
++        .follow_links(false)
++        .build();
++
++    for entry in walker.filter_map(|entry| entry.ok()) {
++        let Some(file_type) = entry.file_type() else {
++            continue;
++        };
++        if !file_type.is_file() {
++            continue;
++        }
+         let path = entry.path();
+         if should_skip(path) {
+             continue;
+@@ -161,3 +172,75 @@ fn should_skip(path: &Path) -> bool {
+         )
+     })
+ }
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    fn test_repo() -> tempfile::TempDir {
++        let temp = tempfile::tempdir().unwrap();
++        let output = std::process::Command::new("git")
++            .args(["init", "--quiet"])
++            .current_dir(temp.path())
++            .output()
++            .unwrap();
++        assert!(
++            output.status.success(),
++            "{}",
++            String::from_utf8_lossy(&output.stderr)
++        );
++        temp
++    }
++
++    fn write_spec(repo: &Path, relative_path: &str) -> PathBuf {
++        let path = repo.join(relative_path);
++        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
++        std::fs::write(&path, "openapi: 3.0.0\npaths: {}\n").unwrap();
++        path
++    }
++
++    #[test]
++    fn finds_non_ignored_openapi() {
++        let temp = test_repo();
++        let spec = write_spec(temp.path(), "docs/openapi.yaml");
++
++        assert_eq!(find_openapi_specs(temp.path()), vec![spec]);
++    }
++
++    #[test]
++    fn skips_gitignored_external_repository() {
++        let temp = test_repo();
++        std::fs::write(temp.path().join(".gitignore"), ".references/\n").unwrap();
++        write_spec(temp.path(), ".references/external/docs/openapi.yaml");
++
++        assert!(find_openapi_specs(temp.path()).is_empty());
++    }
++
++    #[test]
++    fn finds_openapi_in_non_ignored_hidden_directory() {
++        let temp = test_repo();
++        let spec = write_spec(temp.path(), ".api/docs/openapi.yaml");
++
++        assert_eq!(find_openapi_specs(temp.path()), vec![spec]);
++    }
++
++    #[test]
++    fn respects_nested_gitignore() {
++        let temp = test_repo();
++        write_spec(temp.path(), "docs/external/openapi.yaml");
++        let spec = write_spec(temp.path(), "docs/openapi.yaml");
++        std::fs::write(temp.path().join("docs/.gitignore"), "external/\n").unwrap();
++
++        assert_eq!(find_openapi_specs(temp.path()), vec![spec]);
++    }
++
++    #[test]
++    fn respects_git_info_exclude() {
++        let temp = test_repo();
++        write_spec(temp.path(), "external/openapi.yaml");
++        let spec = write_spec(temp.path(), "docs/openapi.yaml");
++        std::fs::write(temp.path().join(".git/info/exclude"), "external/\n").unwrap();
++
++        assert_eq!(find_openapi_specs(temp.path()), vec![spec]);
++    }
++}

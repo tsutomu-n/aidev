@@ -27,6 +27,8 @@ FILES = (
     'aidev.py', 'install.py', 'platform_support.py', 'provider_probe.py', 'provider_build.py',
     'README.md', 'STATUS.md', 'TECHNICAL.md', 'USER_GUIDE.md', 'WINDOWS.md', 'WINDOWS_HANDOFF.md',
     'tests/test_aidev.py', 'tests/test_portability.py', 'tools/windows_handoff.py',
+    'terrain_runtime.py', 'terrain_provider.py', 'terrain-0.9.5-aidev.patch', 'TERRAIN.md',
+    'tests/test_terrain.py', '.github/workflows/terrain.yml', 'tools/terrain_ci.py',
 )
 
 

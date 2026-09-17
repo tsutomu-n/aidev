@@ -17,7 +17,7 @@ from platform_support import WINDOWS, data_home, directory_lock, is_link
 SOURCE = Path(__file__).resolve().parent
 TARGET = data_home()
 ENTRY = TARGET / "bin/aidev.cmd" if WINDOWS else Path.home() / ".local/bin/aidev"
-FILES = ("aidev.py", "provider_probe.py", "provider_build.py", "platform_support.py", "README.md", "USER_GUIDE.md", "TECHNICAL.md", "STATUS.md", "WINDOWS.md")
+FILES = ("aidev.py", "provider_probe.py", "provider_build.py", "platform_support.py", "README.md", "USER_GUIDE.md", "TECHNICAL.md", "STATUS.md", "WINDOWS.md", "terrain_provider.py", "terrain_runtime.py", "terrain-0.9.5-aidev.patch", "TERRAIN.md")
 LEGACY_HASHES = {
     "aidev.py": "fe6b2ed14922df68e63be57dbf5362e5e2f36adb575a946ba9f63d9b1b23876b",
     "provider_probe.py": "319a6b845c49ff6ec4b74bfca2b64f1eea12f58afdb88f66125b5dc5040580bd",
