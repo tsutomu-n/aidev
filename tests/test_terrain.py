@@ -48,7 +48,7 @@ class TerrainTests(unittest.TestCase):
         self.calls = []
         self.enterContext(patch.object(runtime, 'invoke', side_effect=self.invoke))
         self.acp_calls = []
-        self.enterContext(patch.object(runtime, 'preflight_acp', side_effect=lambda *args: self.acp_calls.append('preflight') or str(self.binary)))
+        self.enterContext(patch.object(runtime, 'preflight_acp', side_effect=lambda *args: self.acp_calls.append('preflight') or {'path': str(self.binary), 'codex': {'path': str(self.binary)}, 'codex_home': str(self.host)}))
 
     def invoke(self, binary, root, registry, args, timeout=600, log=None, acp=None):
         self.calls.append(list(args))
@@ -99,7 +99,7 @@ class TerrainTests(unittest.TestCase):
         self.assertEqual(provider.doctor(self.root)['status'], 'TERRAIN_NEEDS_REFRESH')
         self.assertEqual(self.init(refresh=True)['indexes'], 'built')
         aidev.git(self.root, 'add', 'code.py')
-        self.assertEqual(provider.doctor(self.root)['status'], 'TERRAIN_NEEDS_REFRESH')
+        self.assertEqual(provider.doctor(self.root)['status'], 'TERRAIN_READY_CONTEXT_NOT_BUILT')
         (self.root / 'code.py').write_text('def strategy(): return 3\n')
         self.assertEqual(provider.doctor(self.root)['status'], 'TERRAIN_NEEDS_REFRESH')
         self.init(refresh=True)
@@ -121,6 +121,78 @@ class TerrainTests(unittest.TestCase):
         self.assertEqual(provider.doctor(self.root)['status'], 'TERRAIN_NEEDS_CONTEXT_REFRESH')
         self.assertEqual(self.init(refresh=True, build_context=True)['context'], 'built')
         self.assertEqual(len(self.acp_calls), 2)
+
+    def test_generated_commit_and_index_only_changes_reuse_context(self):
+        self.init(build_context=True)
+        before = snapshot(self.base)
+        calls = len(self.calls)
+        aidev.git(self.root, 'add', 'AGENTS.md', '.gitignore', '.terrain')
+        self.assertEqual(provider.doctor(self.root)['status'], 'TERRAIN_READY')
+        aidev.git(self.root, '-c', 'user.name=Fixture', '-c', 'user.email=test@example.test',
+                  '-c', 'commit.gpgsign=false', 'commit', '-qm', 'generated assets')
+        self.assertEqual(provider.doctor(self.root)['status'], 'TERRAIN_READY')
+        self.assertEqual(self.init(refresh=True, build_context=True)['context'], 'reused')
+        # Stage different bytes, then restore the bytes the reader actually sees.
+        source = self.root / 'code.py'
+        original = source.read_bytes()
+        source.write_bytes(b'staged only')
+        aidev.git(self.root, 'add', 'code.py')
+        source.write_bytes(original)
+        self.assertEqual(self.init(refresh=True, build_context=True)['context'], 'reused')
+        self.assertEqual(len(self.calls), calls)
+        self.assertEqual(snapshot(self.base), before)
+
+    def test_content_key_tracks_inputs_policy_and_ignores_metadata(self):
+        key = lambda: provider.fingerprint(self.root, 'runtime', 'fixture')
+        original = key()
+        source = self.root / 'code.py'
+        stat = source.stat()
+        source.write_text('def strategy(): return 2\n')
+        os.utime(source, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+        self.assertNotEqual(key(), original)
+        modified = key()
+        source.rename(self.root / 'renamed.py')
+        self.assertNotEqual(key(), modified)
+        renamed = key()
+        (self.root / 'renamed.py').unlink()
+        self.assertNotEqual(key(), renamed)
+        deleted = key()
+        aidev.git(self.root, 'add', '-u')
+        self.assertEqual(key(), deleted)
+        (self.root / 'extra.py').write_text('added')
+        self.assertNotEqual(key(), deleted)
+        added = key()
+        with patch.object(provider, 'POLICY', 'changed-policy'):
+            self.assertNotEqual(key(), added)
+        self.assertNotEqual(provider.fingerprint(self.root, 'other-runtime', 'fixture'), added)
+        self.assertNotEqual(provider.fingerprint(self.root, 'runtime', 'other-slug'), added)
+        aidev.atomic(self.root / '.terrain/agent/context.md', b'generated output')
+        self.assertEqual(key(), added)
+        # Git's effective exclusions can change outside the working tree.
+        (self.root / '.git/info/exclude').write_text('extra.py\n')
+        self.assertEqual(key(), deleted)
+
+    def test_old_fingerprint_state_requires_one_refresh(self):
+        self.init(build_context=True)
+        state = provider.load_json(self.root, provider.STATE)
+        state.update(source_fingerprint='old-key', context_input_fingerprint='old-key')
+        aidev.atomic(self.root / provider.STATE, aidev.js(state).encode())
+        self.assertEqual(provider.doctor(self.root)['status'], 'TERRAIN_NEEDS_REFRESH')
+        self.assertEqual(self.init(refresh=True)['context'], 'stale')
+        self.assertEqual(self.init(refresh=True, build_context=True)['context'], 'built')
+        calls = len(self.calls)
+        self.assertEqual(self.init(refresh=True, build_context=True)['context'], 'reused')
+        self.assertEqual(len(self.calls), calls)
+
+    def test_windows_dispatch_rejects_before_any_operation(self):
+        before = snapshot(self.base)
+        with patch.object(runtime, 'WINDOWS', True), patch.object(runtime, 'execute') as execute:
+            for command in ('install', 'setup', 'init', 'refresh', 'doctor', 'tools'):
+                with self.subTest(command=command), self.assertRaisesRegex(aidev.Problem, '未サポート'):
+                    provider.dispatch(argparse.Namespace(terrain_command=command))
+            execute.assert_not_called()
+        self.assertEqual(self.calls, [])
+        self.assertEqual(snapshot(self.base), before)
 
     def test_source_changes_during_run_do_not_commit_state(self):
         original = self.invoke
@@ -321,7 +393,7 @@ class TerrainTests(unittest.TestCase):
     def test_process_environment_isolated_and_literal_arguments(self):
         actual_home = os.environ.get('HOME')
         actual_registry = os.environ.get('TERRAIN_REGISTRY_FILE')
-        with runtime.terrain_environment(self.root, self.root / provider.REGISTRY, str(self.binary)) as (env, home):
+        with runtime.terrain_environment(self.root, self.root / provider.REGISTRY, {'path': str(self.binary), 'codex': {'path': str(self.binary)}, 'codex_home': str(self.host)}) as (env, home):
             self.assertNotEqual(env['HOME'], actual_home)
             self.assertEqual(env['TERRAIN_REGISTRY_FILE'], str(self.root / provider.REGISTRY))
             self.assertEqual(env['INITIAL_AGENT_MODE'], 'read-only')

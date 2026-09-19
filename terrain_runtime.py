@@ -126,7 +126,13 @@ def terrain_environment(root, registry, acp=None):
         env.update(HOME=str(home), USERPROFILE=str(home), TERRAIN_REGISTRY_FILE=str(registry),
                    TERRAIN_REPO_PATH=str(root), INITIAL_AGENT_MODE="read-only")
         env["CODEX_HOME"] = os.environ.get("CODEX_HOME", str(Path.home() / ".codex"))
-        settings = {"acp": {"binary": acp or "aidev-no-agent-authorized", "args": "", "agent_execution": "acp", "auto_approve": False}, "language": "en"}
+        env.pop("CODEX_PATH", None)
+        if acp:
+            env["CODEX_PATH"] = acp["codex"]["path"]
+            env["CODEX_HOME"] = acp["codex_home"]
+            if acp.get("node"):
+                env["PATH"] = str(Path(acp["node"]["path"]).parent) + os.pathsep + env.get("PATH", "")
+        settings = {"acp": {"binary": acp["path"] if acp else "aidev-no-agent-authorized", "args": "", "agent_execution": "acp", "auto_approve": False}, "language": "en"}
         atomic(home / ".terrain/settings.json", js(settings).encode())
         # Stop dotenv's ancestor search without reading the target repo's .env.
         atomic(home / ".env", b"")
@@ -136,6 +142,7 @@ def terrain_environment(root, registry, acp=None):
 
 def invoke(binary, root, registry, args, timeout=600, log=None, acp=None):
     with terrain_environment(root, registry, acp) as (env, home):
+        env["PATH"] = str(Path(binary).parent) + os.pathsep + env.get("PATH", "")
         return execute([binary, "--repo-path", root, *args], home, env, timeout, log)
 
 
@@ -186,16 +193,26 @@ def preflight_acp(record, root):
     path = safe_absolute(acp["path"], root, True)
     if file_hash(path) != acp["sha256"]:
         raise Problem("Codex ACP hashが変更されました")
-    check_version(path, CODEX_ACP_VERSION)
-    codex = shutil.which("codex")
-    if not codex:
-        raise Problem("Codex認証の確認にcodex CLIが必要です。利用者がcodex loginを実行してください")
-    codex = safe_absolute(Path(codex).resolve(), root, True)
+    if not acp.get("codex"):
+        raise Problem("ACP engineの登録がありません。setup --codex-acp PATH --approve --replaceで再検証してください")
+    for name in ("codex", "node"):
+        if name in acp:
+            executable = safe_absolute(acp[name]["path"], root, True)
+            if file_hash(executable) != acp[name]["sha256"]:
+                raise Problem(f"承認後にACP {name}が変更されました: {executable}")
+    codex = acp["codex"]["path"]
+    override = os.environ.get("CODEX_PATH")
+    if override and str(safe_absolute(override, root, True)) != codex:
+        raise Problem("CODEX_PATHが承認済みACP engineと一致しません。setupで明示登録してください")
+    auth_home = str(safe_absolute(os.environ.get("CODEX_HOME", str(Path.home() / ".codex"))))
+    if auth_home != acp.get("codex_home"):
+        raise Problem("CODEX_HOMEが承認済みACP認証先と一致しません。setupで明示登録してください")
     try:
-        execute([codex, "login", "status"], Path.home(), timeout=30)
+        with terrain_environment(root, root / ".aidev/terrain/registry.json", acp) as (env, home):
+            execute([codex, "login", "status"], home, env, timeout=30)
     except Problem:
         raise Problem("Codex認証を確認できません。利用者がcodex loginを実行してください（自動loginなし）") from None
-    return str(path)
+    return acp
 
 
 def behavioral_smoke(binary, timeout=600):
@@ -283,6 +300,27 @@ def setup(binary, codex_acp=None, approve=False, replace=False, root=None, timeo
         if file_hash(acp) != before_acp:
             raise Problem("検証中にCodex ACPが変更されました")
         record["codex_acp"] = {"path": str(acp), "version": CODEX_ACP_VERSION, "sha256": before_acp}
+        # Bind the engine checked for authentication to the actual ACP child.
+        selected = os.environ.get("CODEX_PATH") or shutil.which("codex")
+        if not selected:
+            raise Problem("ACP engineのcodex実体が必要です。CODEX_PATHで絶対パスを指定してください")
+        codex = safe_absolute(selected if os.environ.get("CODEX_PATH") else Path(selected).resolve(), root, True)
+        auth_home = safe_absolute(os.environ.get("CODEX_HOME", str(Path.home() / ".codex")))
+        engine_hash = file_hash(codex)
+        version = execute([codex, "--version"], root, timeout=30).strip()
+        if not re.fullmatch(r"codex-cli \d+\.\d+\.\d+(?:[-+][\w.-]+)?", version) or file_hash(codex) != engine_hash:
+            raise Problem("ACP Codex engineのversion/hashを確認できません")
+        record["codex_acp"].update(codex={"path": str(codex), "sha256": engine_hash, "version": version}, codex_home=str(auth_home))
+        if acp.suffix == ".js":
+            node = shutil.which("node")
+            if not node:
+                raise Problem("JS版ACPには既存Node runtimeが必要です")
+            node = safe_absolute(execute([node, "-p", "process.execPath"], root, timeout=30).strip(), root, True)
+            node_hash = file_hash(node)
+            version = execute([node, "--version"], root, timeout=30).strip()
+            if file_hash(node) != node_hash:
+                raise Problem("検証中にNodeが変更されました")
+            record["codex_acp"]["node"] = {"path": str(node), "sha256": node_hash, "version": version}
     config.parent.mkdir(parents=True, exist_ok=True)
     with directory_lock(config.parent):
         safe_absolute(config)

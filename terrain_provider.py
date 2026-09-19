@@ -93,23 +93,15 @@ def input_files(root):
 
 def fingerprint(root, identity, slug):
     h = hashlib.sha256()
-    try:
-        head = git(root, "rev-parse", "--verify", "HEAD").strip()
-    except Problem:
-        head = "unborn"
-    h.update(js([head, identity, slug, POLICY]).encode())
-    # Index blob IDs detect staging changes even when the working file has been
-    # edited back to its previous contents. Never read ignored directories.
-    names = input_files(root)
-    allowed = set(names)
-    for entry in git(root, "ls-files", "--stage", "-z").split("\0"):
-        if "\t" in entry and entry.split("\t", 1)[1] in allowed:
-            h.update(entry.encode() + b"\0")
-    # Hash actual working contents, including nonignored untracked files.
-    for name in names:
+    # Version the key: old state becomes stale once, without inventing lineage.
+    h.update(js(["working-content-v2", identity, slug, POLICY]).encode())
+    # Only bytes Terrain can read matter, not HEAD, index blobs or mtimes.
+    for name in input_files(root):
         path = safe_path(root, name)
+        if not path.is_file():
+            continue  # A staged deletion must not change an already absent input.
         h.update(name.encode() + b"\0")
-        h.update((runtime.file_hash(path) if path.is_file() else "deleted").encode() + b"\0")
+        h.update(runtime.file_hash(path).encode() + b"\0")
     return h.hexdigest()
 
 
@@ -278,6 +270,30 @@ def snapshot_assets(root, run_id):
             atomic(safe_path(root, ".aidev/terrain/backups/" + run_id + "/assets/" + name), path.read_bytes())
 
 
+def recover_context(root, previous, run_id):
+    """Restore the pair deleted by --force, never replace an unknown writer."""
+    names = (CONTEXT, CONTEXT_META)
+    current = {name: read(root, name) for name in names}
+    if current == previous:
+        return
+    backup = root / '.aidev/terrain/backups' / run_id / 'assets'
+    if any(current.values()):
+        raise Problem(
+            f"未確定contextまたは並行変更を保全しました。自動上書きしません。正常pairのbackup: {backup}。"
+            f"現在の {root / CONTEXT} と {root / CONTEXT_META} を別名で保全し、"
+            f"backupの {backup / CONTEXT} と {backup / CONTEXT_META} を元の同名pathへ両方復元してからrefreshを再実行してください"
+        )
+    for name in names:
+        raw = previous[name]
+        if raw is not None:
+            # Exclusive creation also catches a writer arriving during recovery.
+            try:
+                with safe_path(root, name).open('xb') as stream:
+                    stream.write(raw)
+            except FileExistsError:
+                raise Problem(f"context復旧中の並行変更を保全しました。正常pairのbackup: {backup}。両方のcontextファイルを照合して復元してください") from None
+
+
 def migration_current(root, slug):
     if pack_check(root, slug) or context_check(root, slug) or provenance_check(root):
         return False
@@ -367,9 +383,14 @@ def initialize(root, dry_run=False, build_context=False, slug=None, refresh=Fals
             built = False
             if build_context and not context_current and not migration:
                 acp = runtime.preflight_acp(record, root)
-                call(["assets", "agent-context", root, "--slug", slug, "--force"], "context", acp)
-                if not (root / CONTEXT).is_file() or context_check(root, slug):
-                    raise Problem("生成contextのvalidationに失敗しました")
+                previous_context = {name: read(root, name) for name in (CONTEXT, CONTEXT_META)}
+                try:
+                    call(["assets", "agent-context", root, "--slug", slug, "--force"], "context", acp)
+                    if not (root / CONTEXT).is_file() or context_check(root, slug):
+                        raise Problem("生成contextのvalidationに失敗しました")
+                except (Problem, OSError, ValueError, KeyboardInterrupt):
+                    recover_context(root, previous_context, run_id)
+                    raise
                 context_current, built = True, True
             if fingerprint(root, identity, slug) != current:
                 raise Problem("処理中にsourceが変更されました。生成物は未確定です。再実行してください")
@@ -491,6 +512,8 @@ def add_parser(sub):
 
 
 def dispatch(args):
+    if runtime.WINDOWS:
+        raise Problem("WindowsでのTerrain runtimeは未サポートです。正式検証対象はUbuntu 24.04 x86_64です。既存3providerは引き続き利用できます")
     cmd = args.terrain_command
     if getattr(args, "timeout", 1) < 1:
         raise Problem("timeoutには正の秒数が必要です")

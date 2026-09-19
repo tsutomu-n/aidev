@@ -1,19 +1,15 @@
 name: Terrain runtime contract
 on:
   push:
-    paths: ['aidev.py', 'platform_support.py', 'terrain_*.py', 'terrain-0.9.5-aidev.patch', 'tests/test_terrain.py', 'tools/terrain_ci.py', '.github/workflows/terrain.yml']
+    paths: ['aidev.py', 'platform_support.py', 'install.py', 'terrain_*.py', 'terrain-0.9.5-aidev.patch', 'tests/test_terrain.py', 'tools/terrain_ci.py', '.github/workflows/terrain.yml']
   pull_request:
-    paths: ['aidev.py', 'platform_support.py', 'terrain_*.py', 'terrain-0.9.5-aidev.patch', 'tests/test_terrain.py', 'tools/terrain_ci.py', '.github/workflows/terrain.yml']
+    paths: ['aidev.py', 'platform_support.py', 'install.py', 'terrain_*.py', 'terrain-0.9.5-aidev.patch', 'tests/test_terrain.py', 'tools/terrain_ci.py', '.github/workflows/terrain.yml']
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   runtime:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
@@ -26,7 +22,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: terrain-${{ matrix.os }}
+          name: terrain-ubuntu-24.04-x86_64
           path: |
             verification/terrain-ci/*.log
             verification/terrain-ci/*.json

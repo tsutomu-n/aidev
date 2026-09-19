@@ -2,6 +2,7 @@
 from pathlib import Path
 import json
 import os
+import platform
 import re
 import subprocess
 import sys
@@ -48,6 +49,12 @@ def suite(source, folder, label):
 def main():
     folder = ROOT / 'verification/terrain-ci'
     folder.mkdir(parents=True, exist_ok=True)
+    atomic(folder / 'environment.json', js({
+        'os_release': platform.freedesktop_os_release(),
+        'architecture': platform.machine(), 'python': sys.version,
+        'rustc': checked(['rustc', '--version', '--verbose'], ROOT, folder / 'rustc.log').strip(),
+        'cargo': checked(['cargo', '--version'], ROOT, folder / 'cargo.log').strip(),
+    }).encode())
     source = folder / 'upstream'
     if source.exists():
         raise Problem('CI source already exists; use a new disposable checkout')
