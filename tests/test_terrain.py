@@ -45,6 +45,8 @@ class TerrainTests(unittest.TestCase):
         self.host = self.base / 'host'
         aidev.atomic(self.host / 'terrain/foundation.json', aidev.js(self.record).encode())
         self.enterContext(patch.object(runtime, 'data_home', return_value=self.host))
+        self.real_preflight = runtime.preflight_acp
+        self.real_invoke = runtime.invoke
         self.calls = []
         self.enterContext(patch.object(runtime, 'invoke', side_effect=self.invoke))
         self.acp_calls = []
@@ -193,6 +195,76 @@ class TerrainTests(unittest.TestCase):
             execute.assert_not_called()
         self.assertEqual(self.calls, [])
         self.assertEqual(snapshot(self.base), before)
+
+    def test_failed_force_generation_restores_pair_and_retries_once(self):
+        self.init(build_context=True)
+        pair = {name: (self.root / name).read_bytes() for name in (provider.CONTEXT, provider.CONTEXT_META)}
+        (self.root / 'code.py').write_text('changed source')
+        original = self.invoke
+        def failure(*args, **kwargs):
+            if args[3][:2] == ['assets', 'agent-context']:
+                for name in pair:
+                    (self.root / name).unlink()
+                raise aidev.Problem('injected generation failure')
+            return original(*args, **kwargs)
+        with patch.object(runtime, 'invoke', side_effect=failure):
+            with self.assertRaisesRegex(aidev.Problem, 'injected'):
+                self.init(refresh=True, build_context=True)
+        for name, raw in pair.items():
+            self.assertEqual((self.root / name).read_bytes(), raw)
+        self.assertEqual((self.root / 'code.py').read_text(), 'changed source')
+        self.assertEqual(self.init(refresh=True, build_context=True)['context'], 'built')
+        self.assertEqual(provider.doctor(self.root)['status'], 'TERRAIN_READY')
+
+    def test_failed_generation_preserves_unknown_partial_output_and_backup(self):
+        self.init(build_context=True)
+        pair = {name: (self.root / name).read_bytes() for name in (provider.CONTEXT, provider.CONTEXT_META)}
+        (self.root / 'code.py').write_text('changed source')
+        original = self.invoke
+        def failure(*args, **kwargs):
+            if args[3][:2] == ['assets', 'agent-context']:
+                (self.root / provider.CONTEXT).write_bytes(b'concurrent or partial document')
+                (self.root / provider.CONTEXT_META).unlink()
+                raise aidev.Problem('injected')
+            return original(*args, **kwargs)
+        with patch.object(runtime, 'invoke', side_effect=failure):
+            with self.assertRaisesRegex(aidev.Problem, 'backup:') as raised:
+                self.init(refresh=True, build_context=True)
+        self.assertEqual((self.root / provider.CONTEXT).read_bytes(), b'concurrent or partial document')
+        backups = list((self.root / '.aidev/terrain/backups').glob('*/assets/.terrain/agent/context.md'))
+        self.assertTrue(any(p.read_bytes() == pair[provider.CONTEXT] for p in backups))
+        self.assertIn(str(self.root / provider.CONTEXT_META), str(raised.exception))
+
+    def test_preflight_binds_engine_auth_and_rejects_overrides(self):
+        acp = {'path': str(self.binary), 'sha256': runtime.file_hash(self.binary),
+               'codex': {'path': str(self.binary), 'sha256': runtime.file_hash(self.binary)},
+               'codex_home': str(self.host)}
+        with patch.dict(os.environ, {'CODEX_PATH': str(self.binary), 'CODEX_HOME': str(self.host)}), patch.object(runtime, 'execute') as execute:
+            self.assertEqual(self.real_preflight({'codex_acp': acp}, self.root), acp)
+            argv, cwd, env = execute.call_args.args[:3]
+            self.assertEqual(argv, [str(self.binary), 'login', 'status'])
+            self.assertEqual(env['CODEX_PATH'], str(self.binary))
+            self.assertEqual(env['CODEX_HOME'], str(self.host))
+            with patch.dict(os.environ, {'CODEX_HOME': str(self.base)}):
+                with self.assertRaisesRegex(aidev.Problem, 'CODEX_HOME'):
+                    self.real_preflight({'codex_acp': acp}, self.root)
+            other = self.base / ('other-engine.exe' if runtime.WINDOWS else 'other-engine')
+            other.write_bytes(b'other')
+            other.chmod(0o700)
+            with patch.dict(os.environ, {'CODEX_PATH': str(other)}):
+                with self.assertRaisesRegex(aidev.Problem, 'CODEX_PATH'):
+                    self.real_preflight({'codex_acp': acp}, self.root)
+            self.binary.write_bytes(b'changed')
+            acp['sha256'] = runtime.file_hash(self.binary)
+            with self.assertRaisesRegex(aidev.Problem, 'codex'):
+                self.real_preflight({'codex_acp': acp}, self.root)
+
+    def test_invoke_prioritizes_approved_terrain_and_drops_unknown_engine(self):
+        with patch.dict(os.environ, {'CODEX_PATH': '/unknown-engine'}), patch.object(runtime, 'execute') as execute:
+            self.real_invoke(self.binary, self.root, self.root / provider.REGISTRY, ['scan'])
+            env = execute.call_args.args[2]
+            self.assertEqual(env['PATH'].split(os.pathsep)[0], str(self.binary.parent))
+            self.assertNotIn('CODEX_PATH', env)
 
     def test_source_changes_during_run_do_not_commit_state(self):
         original = self.invoke

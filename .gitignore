@@ -12,6 +12,11 @@ __pycache__/
 # Machine-specific acceptance runs and generated test repositories
 /verification/
 
+# Local reference archives and session handoffs (not release inputs)
+/.ref/
+/.ai_memory/
+/.codex/SP_STATE.md
+
 # aidev state, backups and provider logs
 /.aidev/
 
@@ -24,5 +29,8 @@ __pycache__/
 /.code-review-graph/
 /graphify-out/
 
-
-/.ref/
+# Terrain packs and machine-local metadata; shared knowledge stays visible
+/.terrain/agent/repomix.md
+/.terrain/agent/meta.json
+/.terrain/agent/meta-inputs*
+/.terrain/.meta/

@@ -177,6 +177,12 @@ def load_runtime(root):
         binary = safe_absolute(record["path"], root, True)
         if file_hash(binary) != record.get("sha256"):
             raise Problem(f"承認後に実行ファイルが変更されました: {binary}")
+        if name == "codex_acp":
+            for dependency in ("codex", "node"):
+                if dependency in record:
+                    executable = safe_absolute(record[dependency]["path"], root, True)
+                    if file_hash(executable) != record[dependency].get("sha256"):
+                        raise Problem(f"承認後にACP {dependency}が変更されました: {executable}")
     if data["terrain"].get("verified_behavior") is not True:
         raise Problem("Terrain behavioral verificationがありません")
     return data
