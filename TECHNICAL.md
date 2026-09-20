@@ -2,7 +2,7 @@
 
 入口：[/home/tn/projects/aidev/README.md](README.md) ／ 操作手順：[/home/tn/projects/aidev/USER_GUIDE.md](USER_GUIDE.md)
 
-この文書は同じcheckoutの [/home/tn/projects/aidev/aidev.py](aidev.py)、[/home/tn/projects/aidev/provider_probe.py](provider_probe.py)、[/home/tn/projects/aidev/provider_build.py](provider_build.py)、[/home/tn/projects/aidev/install.py](https://github.com/tsutomu-n/aidev/blob/feat/terrain-integration/install.py) を基準とします。mainと0.3.0 featureの内容は異なります。検証したHEADと受入範囲は [/home/tn/projects/aidev/STATUS.md](STATUS.md) に記録します。installerへのリンクはsource checkout専用です。
+この文書は同じcheckoutの [/home/tn/projects/aidev/aidev.py](aidev.py)、[/home/tn/projects/aidev/provider_probe.py](provider_probe.py)、[/home/tn/projects/aidev/provider_build.py](provider_build.py)、[/home/tn/projects/aidev/install.py](https://github.com/tsutomu-n/aidev/blob/feat/terrain-integration/install.py) を基準とします。mainと0.3.0 featureの内容は異なります。検証したHEADと受入範囲は [/home/tn/projects/aidev/STATUS.md](STATUS.md) に記録します。installerへのリンクは配布対象外のsourceへの参照です。
 
 ## 責務と依存
 

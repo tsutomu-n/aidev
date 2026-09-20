@@ -21,7 +21,7 @@
 
 非liveのコード・CI・文書・配布物検査を揃えた判定を `READY_FOR_MAIN_UBUNTU`、実context受入まで揃えた判定を `UBUNTU_ACCEPTED` と区別します。Windows Terrain成功は今回のgateではありません。以前のWindows失敗は下記に履歴として保持します。commit・push・merge・導入の許可は、それぞれ現在の利用者依頼に従います。
 
-local詳細証拠は [/home/tn/projects/aidev/verification/ubuntu-finish](/home/tn/projects/aidev/verification/ubuntu-finish) と [/home/tn/projects/aidev/verification/terrain-ci](/home/tn/projects/aidev/verification/terrain-ci) に保存されています。公開・配布には含めません。以下のtests・installer・引き継ぎ・inventoryへの相対リンクはsource checkout専用です。
+local詳細証拠は [/home/tn/projects/aidev/verification/ubuntu-finish](/home/tn/projects/aidev/verification/ubuntu-finish) と [/home/tn/projects/aidev/verification/terrain-ci](/home/tn/projects/aidev/verification/terrain-ci) に保存されています。公開・配布には含めません。以下のtests・installer・引き継ぎ・inventoryはGitHubのfeature sourceへの参照です。導入版と参照先commitの一致は別途確認してください。
 
 ## 0.3.0 初回統合の検証履歴（旧scope）
 

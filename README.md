@@ -18,7 +18,7 @@ Windows 11 / UbuntuのGitリポジトリに、Serena・Graphify・code-review-gr
 | 実装や設定の契約を調べる | [/home/tn/projects/aidev/TECHNICAL.md](TECHNICAL.md) |
 | 対応範囲・未検証事項を確認する | [/home/tn/projects/aidev/STATUS.md](STATUS.md) |
 
-リンクはclone内とGitHubで移動できる相対リンクです。表示パスはこの作業環境の配置先です。インストーラーはTerrain modules・patch・操作文書を含む13ファイルを同じreleaseに配置します。同梱文書間のリンクはインストール先でも開けます。開発引き継ぎ・tests・installer・inventoryへのリンクはsource checkout専用です。
+リンクはclone内とGitHubで移動できる相対リンクです。表示パスはこの作業環境の配置先です。インストーラーはTerrain modules・patch・操作文書を含む13ファイルを同じreleaseに配置します。同梱文書間のリンクはインストール先でも開けます。開発引き継ぎ・tests・installer・inventoryは配布対象外のため、GitHubのfeature sourceへリンクします。参照先branchと導入版のcommitが一致するか別途確認してください。
 
 ## 導入済みの方の操作
 
