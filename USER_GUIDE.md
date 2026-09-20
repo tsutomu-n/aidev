@@ -74,8 +74,10 @@ python3 /home/tn/.local/share/dev-capabilities/core/catalog.py list
 この環境では `/home/tn/projects/aidev` に取得済みです。未取得の環境で、その配置先が存在しない場合に限り次を使います。
 
 ```sh
-git clone https://github.com/tsutomu-n/aidev.git /home/tn/projects/aidev
+git clone --branch feat/terrain-integration --single-branch https://github.com/tsutomu-n/aidev.git /home/tn/projects/aidev
 ```
+
+この手順は0.3.0検証用の `feat/terrain-integration` を取得します。確認済み実装HEADは `e0272b53cf70ce6a0d12510eb7ca6895e50696f1`。branchは更新され得るため取得後のHEADとSTATUSを照合してください。mainは確認時点で0.2.0です。0.3.0の実LLM受入と通常環境への導入は未完了なので、まず作業専用の検証環境で確認します。
 
 本体のソースからインストールします。配置先の親フォルダーが未作成なら `mkdir -p` で用意します。
 
@@ -313,6 +315,6 @@ providerの内部契約や保存先は [/home/tn/projects/aidev/TECHNICAL.md](TE
 
 ## Terrainを任意導入する
 
-Terrainは3providerと独立したknowledge/navigation layerです。runtimeを明示登録・build後、対象repoで `aidev terrain init --dry-run` → `aidev terrain init` → `aidev terrain doctor` を実行します。コード変更後は `aidev terrain refresh`。Codex ACPによるLLM生成が必要な場合だけinit/refreshへ `--build-context` を付けます。
+Terrainは3providerと独立したknowledge/navigation layerです。正式runtime検証対象はUbuntu 24.04 x86_64で、WindowsのTerrain操作は未サポートです。runtimeを明示登録・build後、対象repoで `aidev terrain init --dry-run` → `aidev terrain init` → `aidev terrain doctor` を実行します。コード変更後は `aidev terrain refresh`。Codex ACPによるLLM生成が必要な場合だけinit/refreshへ `--build-context` を付けます。
 
 read tools、tracked/ignored、既存assetsのmigration、runtime登録・rebuildは [/home/tn/projects/aidev/TERRAIN.md](TERRAIN.md) にまとめています。

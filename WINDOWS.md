@@ -119,8 +119,8 @@ Windowsでは実際の排他ロック、Job Objectによる孫プロセス終了
 - 導入中に競合を検出すると新旧entryを上書きせず停止します。更新時の旧entryは管理先の専用退避先に残り、復旧が必要な場合は表示されたentry backupを確認してください。短い入口不在区間があり得るため、中断時は同じsource・同じPythonで再実行します。
 - 全3providerが前提です。1つだけ成功しても通常利用可能とは判定しません。従来3providerには自動承認、外部LLM呼出し、watcher、Git hook、自動commit/pushは追加していません。
 
-## Terrain 0.3.0の追加受入
+## Terrain 0.3.0の対応範囲
 
-Terrainは `aidev terrain` から任意導入します。native Terrain `.exe` とCodex ACP 1.11.0のnative `.exe` を絶対パスで登録します。空白を含むbinary pathはargsと分離してJSON stdio経路へ渡し、POSIX `env` や `.cmd` wrapperへ依存しません。
+WindowsのTerrain runtimeは未サポートです。`aidev terrain` のhelpは参照できますが、install/setup/init/refresh/doctor/toolsはrepo・global状態の変更前に停止します。native exeの登録・buildをWindowsの通常手順として実行しないでください。
 
-Rust >= 1.94とcargo/Gitがある場合は `aidev terrain install --allow-download` で専用releaseを構築できます。Windows build・behavior smokeは専用workflowで確認し、未実行を0.2.0のCI成功と混同しません。実Codex ACPは別受入です。詳しいCLIと制約は [/home/tn/projects/aidev/TERRAIN.md](TERRAIN.md) にあります。
+既存3provider・installer・WindowsのPython 3.11/3.13回帰CIは維持します。Terrain runtimeの正式検証対象はUbuntu 24.04 x86_64です。過去のWindows upstream test harness失敗は履歴として残し、成功とは扱いません。契約と現在の検証結果は [/home/tn/projects/aidev/TERRAIN.md](TERRAIN.md) と [/home/tn/projects/aidev/STATUS.md](STATUS.md) を確認してください。

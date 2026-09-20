@@ -18,7 +18,7 @@ Windows 11 / UbuntuのGitリポジトリに、Serena・Graphify・code-review-gr
 | 実装や設定の契約を調べる | [/home/tn/projects/aidev/TECHNICAL.md](TECHNICAL.md) |
 | 対応範囲・未検証事項を確認する | [/home/tn/projects/aidev/STATUS.md](STATUS.md) |
 
-リンクはclone内とGitHubで移動できる相対リンクです。表示パスはこの作業環境の配置先です。インストーラーはTerrain modules・patch・操作文書を含む13ファイルを同じreleaseに配置します。インストール先からも文書リンクを開けます。
+リンクはclone内とGitHubで移動できる相対リンクです。表示パスはこの作業環境の配置先です。インストーラーはTerrain modules・patch・操作文書を含む13ファイルを同じreleaseに配置します。同梱文書間のリンクはインストール先でも開けます。開発引き継ぎ・tests・installer・inventoryへのリンクはsource checkout専用です。
 
 ## 導入済みの方の操作
 
@@ -37,6 +37,6 @@ aidev doctor
 
 ## 任意のTerrain knowledge layer
 
-0.3.0では `aidev terrain install --allow-download` または `aidev terrain setup` でruntimeを準備し、対象repoで `aidev terrain init` → `aidev terrain doctor` を使えます。Agent ContextのLLM生成は明示的な `--build-context` 時だけです。既存の `aidev init` にTerrainは自動追加しません。
+Terrain runtimeの正式検証対象はUbuntu 24.04 x86_64です。WindowsではTerrain操作は未サポートですが、既存3providerは継続利用できます。0.3.0では `aidev terrain install --allow-download` または `aidev terrain setup` でruntimeを準備し、対象repoで `aidev terrain init` → `aidev terrain doctor` を使えます。Agent ContextのLLM生成は明示的な `--build-context` 時だけです。既存の `aidev init` にTerrainは自動追加しません。
 
 CLI、安全性、migration、検証の境界は [/home/tn/projects/aidev/TERRAIN.md](TERRAIN.md) にあります。Terrainは探索補助であり、編集前にlive source/testsへ戻って確認します。

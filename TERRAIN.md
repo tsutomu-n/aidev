@@ -2,6 +2,8 @@
 
 Terrainは任意導入のderived navigation/index layerです。Code、tests、schemas、config、lockfiles、CI、CLI helpを正本とします。
 
+正式runtime検証対象は **Ubuntu 24.04 x86_64 / Python 3.11・3.13** です。runtime専用CIはPython 3.13、Python回帰CIは両版で実行します。WindowsのTerrain通常操作は副作用前に未サポートで停止し、helpは利用できます。既存aidevの3providerとWindows Python CIは維持します。他OS・architectureへ検証結果を一般化しません。
+
 ## 目的と使い分け
 
 既存の `aidev init` / `doctor` / `setup` は従来の3provider用です。Terrain未導入でも動作します。Terrainは `aidev terrain` namespaceから明示導入します。`--with-terrain` / `--allow-llm` はありません。
@@ -23,7 +25,7 @@ aidev terrain setup --terrain-binary /absolute/path/to/terrain --approve
 aidev terrain setup --terrain-binary /absolute/path/to/terrain --codex-acp /absolute/path/to/codex-acp --approve --replace
 ```
 
-例中の絶対パスは未作成の説明用です。実在する通常ファイルを指定してください。symlink、reparse point、hardlink、対象repo内の実行ファイルは拒否します。Windowsでは `.cmd` / npm shimではなくnative `.exe` を指定します。npm global installやnpxによる自動取得は行いません。
+例中の絶対パスは未作成の説明用です。実在する通常ファイルを指定してください。symlink、reparse point、hardlink、対象repo内の実行ファイルは拒否します。npmのsymlink入口ではなく、確認した実体を明示指定します。JS版ACPには既存Nodeも必要です。npm global installやnpxによる自動取得は行いません。
 
 `install`にはGit、cargo、rustc >= 1.94が必要です。Rust自体は導入しません。`--allow-download`なしはPLANのみ。指定sourceはclean・exact upstream SHAを確認して別cloneへ複製し、元sourceを変更しません。cargoの依存取得は `--source` 指定時にもあり得るためdownload許可が必要です。focused Rust tests、release build、behavior smokeの成功後だけ登録します。
 
@@ -45,7 +47,7 @@ aidev terrain refresh
 
 slugは初回の明示指定、origin名、root名の順に選び、repo-shared configへ保存します。以降は保存値を優先し、異なるslug指定は拒否します。同名repo・worktreeでもregistryはcheckoutごとに独立します。
 
-dry-runはruntimeの保存hash、paths、既存assets等を検査し、repo・machine登録・registryへ書き込みません。refreshはinit済みrepo専用です。変更がなければscan/packを再実行しません。HEAD、indexのblob ID、Gitが認識するnonignored入力の実内容、runtime identity、生成policyをfingerprintへ含めます。dirty、staged、untrackedの内容変更を検出し、ignored directoryを全走査しません。実行中sourceが変わればstateを最新として確定せず、再実行を求めます。sourceは巻き戻しません。
+dry-runはruntimeの保存hash、paths、既存assets等を検査し、repo・machine登録・registryへ書き込みません。refreshはinit済みrepo専用です。変更がなければscan/packを再実行しません。fingerprintはGitが認識するnonignored入力のpath・作業中の内容、slug、runtime identity、生成policyから作ります。HEAD・indexのblob ID・mtimeだけでは再生成しません。内容不変のstage/commitや生成物だけのcommitもno-opです。入力の追加・削除・rename・内容変更、有効な除外による対象集合変更を検出し、ignored directoryを全走査しません。旧キーのstateは一度staleとして再構築し、contextは明示更新まで古いまま保持します。実行中sourceが変わればstateを最新として確定せず、再実行を求めます。sourceは巻き戻しません。
 
 Terrainのscanはpackも作ります。aidevは古いpack metadataを退避してHEADだけによる誤再利用を防ぎ、scan後にpackがreadyでない場合だけpack-agentへfallbackします。
 
@@ -58,9 +60,9 @@ aidev terrain refresh --build-context
 
 このflagはCodex ACPによるLLM処理・外部送信を許可する操作です。同じ入力・runtime・policy・出力hashなら再生成しません。flagなしはローカルscan/packのみで、既存contextを削除せずstaleと記録します。
 
-初期サポートは `@agentclientprotocol/codex-acp 1.11.0`。事前に登録hash・版・実行pathを確認し、Codex CLIの `login status` で認証状態を確認します。不足時は停止し、利用者によるloginを案内します。browser・loginは自動起動しません。ACP binaryと空argsを分離し、JSON stdio設定と `INITIAL_AGENT_MODE=read-only` を使います。native LLM設定は追加しません。permissionの自動承認は無効です。
+初期サポートは `@agentclientprotocol/codex-acp 1.11.0`。setupはACPに加えて、選択したCodex engineのpath/hash/versionとCODEX_HOME、JS版ではNode実体も登録します。engineは明示的な `CODEX_PATH`、未指定ならPATHのCodex実体を使います。開発用CodexとACP同梱engineの版は別です。登録前に意図した実体を確認してください。生成前は登録engineで `login status` を実行し、同じengine・認証先をACPへ渡します。登録と異なるCODEX_PATH/CODEX_HOMEや変更済みbinaryは停止します。旧ACP登録にはengine記録がないため、setupの `--approve --replace` で再検証が必要です。JS package依存全体をhash固定する保証ではありません。不足時は停止し、利用者によるloginを案内します。browser・loginは自動起動しません。ACP binaryと空argsを分離し、JSON stdio設定と `INITIAL_AGENT_MODE=read-only` を使います。native LLM設定は追加しません。permissionの自動承認は無効です。
 
-Terrainの起動自体にHOME側asset展開があるため、wrapperは一時HOMEと設定を用意します。`.env` の自動読込みを避けるためTerrain launcherのcwdはその一時HOME、対象repoは絶対 `--repo-path`・registry・環境で指定します。ACPのworking directoryは対象repoです。認証をコピーせず既存の `CODEX_HOME` を引き継ぎます。keyring等の認証方式は実環境で別途受入が必要です。
+Terrainの起動自体にHOME側asset展開があるため、wrapperは一時HOMEと設定を用意します。`.env` の自動読込みを避けるためTerrain launcherのcwdはその一時HOME、対象repoは絶対 `--repo-path`・registry・環境で指定します。ACPのworking directoryは対象repoです。認証をコピーせず登録と一致する既存の `CODEX_HOME` を使います。起動ごとのPATHでは承認Terrainを優先し、JS版ACPでは登録Nodeも優先します。global PATHは変更しません。keyring等の認証方式は実環境で別途受入が必要です。
 
 Git ignoreを尊重し、nonignoredの `.env`、credentials、key等の代表的ファイル名は処理前に拒否します。これは任意の秘密文字列の自動redactionではありません。送信前にrepoのignoreと内容を確認してください。
 
@@ -133,7 +135,7 @@ Git管理外:
 
 AGENTSの既存本文を保全し、aidev管理marker内だけを更新します。markerなしの既存 `## Terrain Knowledge Layer` はmanualとして保全し、重複追加しません。
 
-変更前のAGENTS/configと共有Terrain assetsはrun別backupへ保存します。partial failureのログと以前のstateを残し、再実行で回復できます。利用者sourceをrollbackせず、大きな一括transactionも行いません。不正な既存context/provenanceは自動修復せず監査で停止します。backupを確認して利用者が訂正してください。
+変更前のAGENTS/configと共有Terrain assetsはrun別backupへ保存します。partial failureのログと以前のstateを残します。`--force` が正常context本文とmetadataを両方削除した後に失敗した場合、未知の出力がなければ以前のpairを排他的な新規作成で復元し、再実行できます。部分出力・並行変更があれば自動上書きせず、正常pairのbackup先と手動復旧手順を表示します。現出力を別名で保全し、本文とmetadataの両方を照合・復元してから再実行してください。利用者sourceをrollbackせず、大きな一括transactionも行いません。不正な既存context/provenanceは自動修復せず監査で停止します。backupを確認して利用者が訂正してください。
 
 ## upstreamとpatch
 
@@ -146,8 +148,8 @@ AGENTSの既存本文を保全し、aidev管理marker内だけを更新します
 
 ## 検証と制限
 
-Pythonのfixture testsは既存Ubuntu/Windows × Python 3.11/3.13 workflowに含まれます。別のTerrain workflowはUbuntu/Windowsでexact upstream、patch適用範囲、focused Rust tests、release build、behavior smokeを検査します。runtimeのcore/agent/CLI full testsはclean baselineとtest名・failure内容を比較し、新規failureを拒否します。desktop GUIはaidev配布runtimeの対象外です。upstream全体へのformat変更は行いません。
+Pythonのfixture testsは既存Ubuntu/Windows × Python 3.11/3.13 workflowに含まれます。別のTerrain workflowはUbuntu 24.04 x86_64でexact upstream、patch適用範囲、focused Rust tests、release build、behavior smokeを検査します。runtimeのcore/agent/CLI full testsはclean baselineとtest名・failure内容を比較し、新規failureを拒否します。desktop GUIはaidev配布runtimeの対象外です。upstream全体へのformat変更は行いません。
 
-live Codex ACPは通常CIに含めません。実認証・外部送信許可のあるdisposable fixtureで別受入とし、未実施はUNVERIFIEDです。live受入では生成前後のsource fingerprintとGit statusを保存・比較し、source modificationが0であることを実測します。`INITIAL_AGENT_MODE=read-only` の設定だけではsource不変の証明にしません。Windows build/CI、通常利用環境への導入、実LLM生成の完了はsource実装と区別し、現在の結果はSTATUSに記録します。
+live Codex ACPは通常CIに含めません。実認証・外部送信許可のあるdisposable fixtureで別受入とし、未実施はUNVERIFIEDです。live受入では生成前後のsource fingerprintとGit statusを保存・比較し、source modificationが0であることを実測します。`INITIAL_AGENT_MODE=read-only` の設定だけではsource不変の証明にしません。Windows core CI、Ubuntu runtime CI、通常利用環境への導入、実LLM生成の完了はsource実装と区別し、現在の結果はSTATUSに記録します。
 
 submodule入力、symlink/reparse/hardlinkを含む入力・生成先は初版では停止します。read-pack-fileはupstreamの圧縮packに基づく探索であり、live sourceの厳密転記ではありません。自動redaction、watch daemon、Git hook、Litho/SDD自動生成、plugin frameworkはありません。

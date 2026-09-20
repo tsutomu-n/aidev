@@ -1,6 +1,6 @@
 # Windows 11側のCodexへの実装引き継ぎ
 
-現行sourceは0.3.0（Terrain任意統合）です。下記0.2.0のWindows回帰履歴を保持しています。追加のTerrain受入・現在の判定は [/home/tn/projects/aidev/TERRAIN.md](TERRAIN.md) と [/home/tn/projects/aidev/STATUS.md](STATUS.md) を確認してください。旧CI成功は0.3.0のWindows build/ACP受入の証拠ではありません。
+現行sourceは0.3.0（Terrain任意統合）です。下記0.2.0のWindows回帰履歴を保持しています。WindowsではTerrain runtimeは未サポートであり、この文書の実機受入対象は既存3providerとaidev coreです。Ubuntu Terrainの受入・現在の判定は [/home/tn/projects/aidev/TERRAIN.md](TERRAIN.md) と [/home/tn/projects/aidev/STATUS.md](STATUS.md) を確認してください。旧CI成功は0.3.0のWindows build/ACP受入の証拠ではありません。
 
 **目的：aidev 0.2.0のWindows対応候補を、ネイティブWindows 11で検証し、実際に利用できる状態へ仕上げる。** W-01〜W-03のsource修正とfixtureのパス正規化はCI全4構成で成功しました。残る警告を確認し、専用の検証環境で導入と実providerの受入を進めます。現時点でWindows 11対応の完成・受入済みとは判定しません。
 
@@ -20,7 +20,7 @@
 
 未確認の項目があるだけで全作業を止めず、依存しない修正を完了させます。反対に、隔離や利用者変更の保全を確認できない操作は実行せず、対象と必要条件を示します。
 
-## 2. 受け取るものと現在の状態
+## 2. 0.2.0受け渡しの履歴と継続する実機受入
 
 Ubuntu側の作業ソースは [/home/tn/projects/aidev](/home/tn/projects/aidev) です。GitHubの連携先は [tsutomu-n/aidev](https://github.com/tsutomu-n/aidev)。Windows上のclone先は未確認です。本文のUbuntu絶対パスは作成元の位置を表し、ファイルリンクはclone内で辿れる相対リンクを使います。Windowsで実行するときはGit rootから絶対パスを解決してください。
 
@@ -39,7 +39,7 @@ Ubuntu側の作業ソースは [/home/tn/projects/aidev](/home/tn/projects/aidev
 
 ## 3. Windows側へcloneして内容を照合する
 
-受け渡しbranchは `main` です。**[PR #1](https://github.com/tsutomu-n/aidev/pull/1) のマージ後、送付側がmainのCI成功を確認して伝えた完全なcommit hashと、下記branchの内容を照合してcloneします。** 資料だけでなく、0.2.0の実装・追加テスト・CIも同じbranchに含める必要があります。release公開や通常利用環境への導入は別工程です。
+以下は0.2.0 coreを受け渡す手順で、branchは `main` です。0.3.0 featureを受領する場合、このmain固定ブロックをそのまま使わず、送付側が指定したbranchと完全なcommit hashを照合してください。**[PR #1](https://github.com/tsutomu-n/aidev/pull/1) のマージ後、送付側がmainのCI成功を確認して伝えた完全なcommit hashと、下記branchの内容を照合してcloneします。** 資料だけでなく、0.2.0の実装・追加テスト・CIも同じbranchに含める必要があります。release公開や通常利用環境への導入は別工程です。
 
 公開する側は、作業一式と受領manifestを同じcommitへ含め、push後の完全なcommit hashを受け取る側へ伝えます。base commitや版表示だけでは受領確認になりません。送付する具体的な一覧は [/home/tn/projects/aidev/WINDOWS_HANDOFF_MANIFEST.json](WINDOWS_HANDOFF_MANIFEST.json) にあります。
 

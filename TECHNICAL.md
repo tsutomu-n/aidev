@@ -2,7 +2,7 @@
 
 入口：[/home/tn/projects/aidev/README.md](README.md) ／ 操作手順：[/home/tn/projects/aidev/USER_GUIDE.md](USER_GUIDE.md)
 
-この文書は [https://github.com/tsutomu-n/aidev/blob/main/aidev.py](https://github.com/tsutomu-n/aidev/blob/main/aidev.py)、[https://github.com/tsutomu-n/aidev/blob/main/provider_probe.py](https://github.com/tsutomu-n/aidev/blob/main/provider_probe.py)、[https://github.com/tsutomu-n/aidev/blob/main/provider_build.py](https://github.com/tsutomu-n/aidev/blob/main/provider_build.py)、[https://github.com/tsutomu-n/aidev/blob/main/install.py](https://github.com/tsutomu-n/aidev/blob/main/install.py) の現行ソースを基準とします。稼働版と検証範囲は [https://github.com/tsutomu-n/aidev/blob/main/STATUS.md](https://github.com/tsutomu-n/aidev/blob/main/STATUS.md) に分けます。
+この文書は同じcheckoutの [/home/tn/projects/aidev/aidev.py](aidev.py)、[/home/tn/projects/aidev/provider_probe.py](provider_probe.py)、[/home/tn/projects/aidev/provider_build.py](provider_build.py)、[/home/tn/projects/aidev/install.py](install.py) を基準とします。mainと0.3.0 featureの内容は異なります。検証したHEADと受入範囲は [/home/tn/projects/aidev/STATUS.md](STATUS.md) に記録します。installerへのリンクはsource checkout専用です。
 
 ## 責務と依存
 
@@ -81,7 +81,7 @@ Serena等の終了0でも部分失敗の出力を検出します。CRG wrapper�
 
 ## installerの契約
 
-現行installerは13ファイル（既存9ファイルとTerrain用2 modules・patch・操作文書）のhashからrelease識別子を作り、`$HOME/.local/share/aidev/releases` に配置します。このdirectoryは初回導入または旧版からの更新時に作成されます。`installation.json` に収録ファイルhashを記録し、完全なreleaseへUbuntuは入口symlink、WindowsはASCIIのcmdランチャーをatomicに切り替えます。Windowsの保存先設定値は `%LOCALAPPDATA%\aidev` です。補助symlinkの更新を含む全操作が一括transactionという意味ではありません。
+現行installerは13ファイル（既存9ファイルとTerrain用2 modules・patch・操作文書）のhashからrelease識別子を作り、`$HOME/.local/share/aidev/releases` に配置します。このdirectoryは初回導入または旧版からの更新時に作成されます。`installation.json` に収録ファイルhashを記録し、完全なreleaseへUbuntuは入口symlink、WindowsはUTF-8のcmdランチャーをatomicに切り替えます。Windowsの保存先設定値は `%LOCALAPPDATA%\aidev` です。補助symlinkの更新を含む全操作が一括transactionという意味ではありません。
 
 `--upgrade` は旧0.1.0の既知hash、または管理releaseのmanifestと実体が一致する場合に進みます。release manifestには実行Pythonの絶対パス・検証済み版・launcher形式も含み、Windows launcherはそのPythonをUTF-8 cmdから直接起動します。`py` / PATHへの実行時fallbackはありません。ロック取得後と公開直前にentryの種類・内容・link先を再照合し、初回は存在しない宛先への作成だけを許可します。更新は旧entryを専用退避先へrenameしてから、空の宛先へ公開します。競合時は上書きせず停止します。
 
@@ -97,7 +97,7 @@ python3 -B aidev.py doctor --help
 python3 -B install.py --help
 ```
 
-既存20テストは一時Git repoとproviderのmockで、保全・再実行・鮮度・部分失敗・timeoutなどを確認します。実providerやinstaller更新経路の受入とは別です。provider版を変える場合は、probe/API・設定・実索引・実照会の互換性を対象環境で確認し、版の定数だけを書き換えて完了としません。
+coreの20テストは一時Git repoとproviderのmockで、保全・再実行・鮮度・部分失敗・timeoutなどを確認します。実providerやinstaller更新経路の受入とは別です。provider版を変える場合は、probe/API・設定・実索引・実照会の互換性を対象環境で確認し、版の定数だけを書き換えて完了としません。
 
 ## Windowsと専用provider登録
 
