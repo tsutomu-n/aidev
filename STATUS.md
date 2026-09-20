@@ -2,9 +2,30 @@
 
 入口：[/home/tn/projects/aidev/README.md](README.md) ／ 操作手順：[/home/tn/projects/aidev/USER_GUIDE.md](USER_GUIDE.md)
 
-## 0.3.0 Terrain統合
+## 0.3.0 Ubuntu scopeの現在状態
 
-現行sourceは **0.3.0 / NOT_READY**。base mainは `b1bbe5194977ad2296c133656f0978a0812e1c60`、作業branchは `feat/terrain-integration` です。実装commit `356143979fc9c2c4105db4637294f15f2e1a2ec6` をpushし、Python 4-matrixは成功しました。Terrain Windows CIはclean upstreamのtest harnessコンパイル失敗で停止しました。PR・merge・release・通常利用環境への反映は行っていません。
+判定は **実装CI成功・実LLM受入未完了** です。検証した実装HEADは `e0272b53cf70ce6a0d12510eb7ca6895e50696f1`、branchは `feat/terrain-integration`。この文書と受領inventoryの更新は、その実装に対する文書変更です。
+
+| 項目 | 確認結果と境界 |
+|---|---|
+| 正式Terrain runtime scope | Ubuntu 24.04 x86_64。Python回帰は3.11・3.13、runtime専用CIは3.13 |
+| Python CI | 同一実装HEADのUbuntu 24.04 / Windows × 3.11 / 3.13、全4job成功。[実行結果](https://github.com/tsutomu-n/aidev/actions/runs/35447587893) |
+| Ubuntu runtime CI | 同一実装HEADでexact upstream・正式patch・baseline比較・focused tests・release build・behavior/worktree smoke成功。[実行結果](https://github.com/tsutomu-n/aidev/actions/runs/35447587861) |
+| 内容ベースのキー | 内容不変のstage/commit・生成物commit後の再利用、入力変更・旧キー移行を回帰で確認 |
+| ACP経路 | engine・CODEX_HOME・JS版Nodeを登録し、認証検査とACP起動先を一致させる。実ACP childの観測は未受入 |
+| 失敗保全 | force削除後にpair不在なら正常pairを復元し再試行。未知の部分出力・並行変更は保全して手動復旧を案内 |
+| local Python | Ubuntu 25.10 x86_64、Python 3.11.14 / 3.13.7で各76 tests、74成功・Windows専用2skip。24.04の証拠とは別 |
+| Windows Terrain | 未サポート。通常操作を副作用前に拒否。helpと内部Python fixture、既存3providerは維持 |
+| 配布・live | 今回の最終配布物を使う実context生成・再利用・更新・検索・意味確認は未完了。UBUNTU_ACCEPTEDではない |
+| 公開・導入 | 上記実装HEADはremote featureと一致。mainへの統合・release・通常利用環境への導入は、この検証の成功から推定しない |
+
+非liveのコード・CI・文書・配布物検査を揃えた判定を `READY_FOR_MAIN_UBUNTU`、実context受入まで揃えた判定を `UBUNTU_ACCEPTED` と区別します。Windows Terrain成功は今回のgateではありません。以前のWindows失敗は下記に履歴として保持します。commit・push・merge・導入の許可は、それぞれ現在の利用者依頼に従います。
+
+local詳細証拠は [/home/tn/projects/aidev/verification/ubuntu-finish](/home/tn/projects/aidev/verification/ubuntu-finish) と [/home/tn/projects/aidev/verification/terrain-ci](/home/tn/projects/aidev/verification/terrain-ci) に保存されています。公開・配布には含めません。以下のtests・installer・引き継ぎ・inventoryへの相対リンクはsource checkout専用です。
+
+## 0.3.0 初回統合の検証履歴（旧scope）
+
+当時のsource判定は **0.3.0 / NOT_READY**。base mainは `b1bbe5194977ad2296c133656f0978a0812e1c60`、作業branchは `feat/terrain-integration` です。実装commit `356143979fc9c2c4105db4637294f15f2e1a2ec6` をpushし、Python 4-matrixは成功しました。Terrain Windows CIはclean upstreamのtest harnessコンパイル失敗で停止しました。PR・merge・release・通常利用環境への反映は行っていません。
 
 | 受入項目 | 結果と範囲 |
 |---|---|
@@ -47,13 +68,13 @@ coreの修正版は128成功・3失敗、integration testsは7成功。agentは1
 
 生成gateはfixtureで確認済みで、live LLM生成は別受入です。context本文の事実性・網羅性は機械validationの保証外です。legacy migrationでdirty入力のlineageを証明できない場合やAGENTSを新たに変更する場合はpackを更新し、contextをstaleとして保持します。migrationだけではLLMを呼びません。submodule、symlink/reparse/hardlink入力、unignoredの代表的秘密ファイル名は初版では停止します。任意の秘密文字列のredactionは保証しません。
 
-0.3.0をREADY_FOR_MAINとするには、このbranchの4-matrix CIとUbuntu/Windows Terrain runtime CIの成功確認が必要です。live ACPをmerge gateに含めず、別受入項目としてUNVERIFIEDを残す方針です。通常利用環境への導入は別の明示操作です。操作・契約は [/home/tn/projects/aidev/TERRAIN.md](TERRAIN.md) を参照してください。
+当時は4-matrix CIとUbuntu/Windows Terrain runtime CIをREADY_FOR_MAINの条件とし、live ACPを別受入としていました。この旧gateは今回のUbuntu scopeへ置き換えられています。通常利用環境への導入は別の明示操作です。操作・契約は [/home/tn/projects/aidev/TERRAIN.md](TERRAIN.md) を参照してください。
 
 ## 0.2.0 Windows回帰の履歴
 
 以下は0.2.0の過去検証です。当時のコード判定はREADY_FOR_MAINで、W-01〜W-03の修正とfixture正規化が全4構成のCIで成功しました。Windows 11実機・実provider・通常利用環境への導入は未確認です。各環境の導入版は `aidev --version` で確認してください。
 
-CIの証拠はcommit `b91bf2c00fb0fd7e6b031b5dbede4fffd02ed991` の [PR検証](https://github.com/tsutomu-n/aidev/actions/runs/35207281491) です。[修正前のCI](https://github.com/tsutomu-n/aidev/actions/runs/35083256979) ではWindows 2構成がfixtureのパス不整合で失敗しました。[/home/tn/projects/aidev/tests/test_aidev.py](tests/test_aidev.py) の `InitTests` と [/home/tn/projects/aidev/tests/test_portability.py](tests/test_portability.py) の `FoundationTests` で、一時ルートを `Path(self.tmp.name).resolve()` に統一しました。安全性assertion・Windows専用テスト・公開API・CLI・設定形式は維持しています。
+CIの証拠はcommit `b91bf2c00fb0fd7e6b031b5dbede4fffd02ed991` の [PR検証](https://github.com/tsutomu-n/aidev/actions/runs/35207281491) です。[修正前のCI](https://github.com/tsutomu-n/aidev/actions/runs/35083256979) ではWindows 2構成がfixtureのパス不整合で失敗しました。[/home/tn/projects/aidev/tests/test_aidev.py](https://github.com/tsutomu-n/aidev/blob/feat/terrain-integration/tests/test_aidev.py) の `InitTests` と [/home/tn/projects/aidev/tests/test_portability.py](https://github.com/tsutomu-n/aidev/blob/feat/terrain-integration/tests/test_portability.py) の `FoundationTests` で、一時ルートを `Path(self.tmp.name).resolve()` に統一しました。安全性assertion・Windows専用テスト・公開API・CLI・設定形式は維持しています。
 
 | CI環境 | Python実測版 | 結果 |
 |---|---|---|
@@ -66,7 +87,7 @@ WindowsのOS実測はServer 2025 Datacenter build `10.0.26100`、runner imageは
 
 ## source修正済み・引き継ぎ
 
-Windows側の作業要求と手順は、ソースに含む [/home/tn/projects/aidev/WINDOWS_HANDOFF.md](WINDOWS_HANDOFF.md) を正本とします。W-01〜W-03のsource修正とnative Windows用W-01回帰testを含むコードは上記CIで成功しました。通常利用やWindows完全受入は別の判定です。
+Windows側の作業要求と手順は、ソースに含む [/home/tn/projects/aidev/WINDOWS_HANDOFF.md](https://github.com/tsutomu-n/aidev/blob/feat/terrain-integration/WINDOWS_HANDOFF.md) を正本とします。W-01〜W-03のsource修正とnative Windows用W-01回帰testを含むコードは上記CIで成功しました。通常利用やWindows完全受入は別の判定です。
 
 - W-01：launcherは裸の `py -3` を廃止し、導入時に検証したPython絶対パス・version・形式をrelease manifestへ記録する。native Windows testは空白・日本語・`&`・括弧・`!`を含む一時Python環境からinstallerを実行し、生成された`.cmd`の起動、子プロセスのPython実体とmatrix指定版、引数・終了コードを照合する。cwdの偽`py`とPATH上の偽`python`が名前探索で実行される対照試験も含む。このtestはWindows CIの両Python構成でPASSし、起動Python固定のnative evidenceが成立した。
 - W-02：所有判定をロック取得後へ移し、release準備後・公開直前のentry再照合と、上書き禁止の公開へ変更した。管理外commandを保全する回帰テストはUbuntu/Windows CIで成功した。
@@ -74,13 +95,13 @@ Windows側の作業要求と手順は、ソースに含む [/home/tn/projects/ai
 
 W-02/W-03の再現ツールの記録はUbuntu上でWindowsのファイル処理分岐を用いたものです。今回のWindows CIでは実OS上のfixture回帰も成功しましたが、Windows 11受入完了を意味しません。
 
-Windowsの導入・更新テストでは、成功時にも既存の `Parameter format not correct - code` が出力されています。[/home/tn/projects/aidev/install.py](install.py) の `windows_launcher()` にある `chcp` 出力の分割と復元処理に由来すると考えられ、元のcode pageの復元成功は未確認です。今回のfixture修正ではlauncherを変更しておらず、起動Python固定の成功とこの残課題を区別します。
+Windowsの導入・更新テストでは、成功時にも既存の `Parameter format not correct - code` が出力されています。[/home/tn/projects/aidev/install.py](https://github.com/tsutomu-n/aidev/blob/feat/terrain-integration/install.py) の `windows_launcher()` にある `chcp` 出力の分割と復元処理に由来すると考えられ、元のcode pageの復元成功は未確認です。今回のfixture修正ではlauncherを変更しておらず、起動Python固定の成功とこの残課題を区別します。
 
 ## 引き継ぎの補助
 
-- sourceに [/home/tn/projects/aidev/AGENTS.md](AGENTS.md) を配置し、Windows側Codexの開始時に引き継ぎ資料を読む導線を追加。
-- [/home/tn/projects/aidev/tools/windows_handoff.py](tools/windows_handoff.py) は、受領内容照合と一時fixtureでの既知不具合再現を担当。通常利用環境への導入・provider実行はしない。
-- [/home/tn/projects/aidev/WINDOWS_HANDOFF_MANIFEST.json](WINDOWS_HANDOFF_MANIFEST.json) はUTF-8/LF正規化したsource inventory。期待commitとcleanなGit状態も照合して受領を確認する。署名や実機受入の代替ではない。
+- sourceに [/home/tn/projects/aidev/AGENTS.md](https://github.com/tsutomu-n/aidev/blob/feat/terrain-integration/AGENTS.md) を配置し、Windows側Codexの開始時に引き継ぎ資料を読む導線を追加。
+- [/home/tn/projects/aidev/tools/windows_handoff.py](https://github.com/tsutomu-n/aidev/blob/feat/terrain-integration/tools/windows_handoff.py) は、受領内容照合と一時fixtureでの既知不具合再現を担当。通常利用環境への導入・provider実行はしない。
+- [/home/tn/projects/aidev/WINDOWS_HANDOFF_MANIFEST.json](https://github.com/tsutomu-n/aidev/blob/feat/terrain-integration/WINDOWS_HANDOFF_MANIFEST.json) はUTF-8/LF正規化したsource inventory。期待commitとcleanなGit状態も照合して受領を確認する。署名や実機受入の代替ではない。
 
 引き継ぎ補助のUbuntu検証では、cleanな一時Git repoの受領成功、異なるHEADの拒否、CRLFの許容、内容変更の拒否、不正inventoryの拒否を確認しました。PowerShell例13ブロックは構文検査済みで、Windows上での実行結果ではありません。source修正後の再現ツールはW-01をUNVERIFIED、W-02・W-03-source・W-03-publishをPASSとして返します。これらはunit testsとは別の確認です。
 
