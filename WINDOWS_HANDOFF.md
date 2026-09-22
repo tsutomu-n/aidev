@@ -1,5 +1,7 @@
 # Windows 11側のCodexへの実装引き継ぎ
 
+context専用ACP修正の実LLM受入は固定Linux候補に対する結果です。Windows Terrainの受入・通常導入は未実施で、元の実LLM失敗やWindows CIの履歴を成功へ書き換えません。固定qualificationの起動拒否を手編集で迂回しないでください。受領manifestの一致も実機検証の代替ではありません。
+
 現行sourceは0.3.0（Terrain任意統合）です。下記0.2.0のWindows回帰履歴を保持しています。WindowsではTerrain runtimeは未サポートであり、この文書の実機受入対象は既存3providerとaidev coreです。Ubuntu Terrainの受入・現在の判定は [/home/tn/projects/aidev/TERRAIN.md](TERRAIN.md) と [/home/tn/projects/aidev/STATUS.md](STATUS.md) を確認してください。旧CI成功は0.3.0のWindows build/ACP受入の証拠ではありません。
 
 **目的：aidev 0.2.0のWindows対応候補を、ネイティブWindows 11で検証し、実際に利用できる状態へ仕上げる。** W-01〜W-03のsource修正とfixtureのパス正規化はCI全4構成で成功しました。残る警告を確認し、専用の検証環境で導入と実providerの受入を進めます。現時点でWindows 11対応の完成・受入済みとは判定しません。

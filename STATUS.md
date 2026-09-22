@@ -2,7 +2,32 @@
 
 入口：[/home/tn/projects/aidev/README.md](README.md) ／ 操作手順：[/home/tn/projects/aidev/USER_GUIDE.md](USER_GUIDE.md)
 
-## 0.3.0 Ubuntu scopeの現在状態
+## 0.3.0 context修正候補の実LLM受入
+
+隔離候補の判定は **UBUNTU_ACCEPTED**。受入済みのruntime/provider修正、固定ACP差分、検証記録、Linux監督helperをこのsourceへ統合しました。通常環境への導入・launcher切替・package releaseは行っていません。Windows Terrainは未サポートのままです。
+
+| 項目 | 確認結果と境界 |
+|---|---|
+| 対象候補 | release `8b3caf8c3a89f24281cb`、runtime identity `d18e90cdbc5042980ba82c0a401e56d16e9229ee701ee734d67553d4c5583008` |
+| 実測環境 | Ubuntu 25.10 x86_64 / Python 3.14.3 / Codex 0.155.1 / Node 24.20.0 / Terrain 0.9.5。Ubuntu 24.04 CIや別環境の実LLM受入とは区別 |
+| 実モデル | 初回・更新とも `gpt-6-astra`、effort `medium`。保存済みsessionのturn_contextで確認。backend内部routingは未確認 |
+| 通常設定とoverlay | 通常 `/home/tn/.codex` を使用。context専用read-only/never、turnのnetworkAccess=false、検証済みNode・既存chrome-devtools MCPの直接起動overlayあり。通常設定と完全同一ではない |
+| 初回・更新生成 | installed候補CLIから計2回とも成功。生成前後のsource集合・内容を照合 |
+| 再利用2種 | 同一入力、および生成物のみfixture内commit後に `reused`。文書hash・生成log不変とACP/app-server再起動なしを照合 |
+| 意図した機能変更 | 梱包料を指定可能なkeyword-only引数へ変更、既定値3。testは初期2件・変更後5件成功。stale検出後の更新文書にも変更を反映 |
+| 検索・意味確認 | 初回・更新ともread-context、grep-pack、read-pack-file成功。主要記述をlive source/tests/schemaと照合。最終doctorは `TERRAIN_READY` |
+| 承認済み同期 | ars-codex `main` の照会とremote catalog cache更新を観測。既存remote plugin 10件のID・有効状態・release・内容は不変。新規plugin・依存package取得は観測なし |
+| 保全・終了 | 通常config・AGENTS・hooks、通常repo、通常aidev/Terrain/launcher、候補・依存・過去結果の禁止対象差分0。所有照合対象827 processの残存0 |
+
+受入runは `run-20260922T105500Z`。詳細原本は [/home/tn/handoffs/aidev-context-fix-isolated-20260921/evidence/run-20260922T105500Z/RESULT.md](/home/tn/handoffs/aidev-context-fix-isolated-20260921/evidence/run-20260922T105500Z/RESULT.md) と [/home/tn/handoffs/aidev-context-fix-isolated-20260921/evidence/run-20260922T105500Z/result.json](/home/tn/handoffs/aidev-context-fix-isolated-20260921/evidence/run-20260922T105500Z/result.json) に保持し、ログ・認証情報・個別plugin IDは公開sourceへ含めません。元の実LLM `FAIL`、非LLM `PASS WITH ISSUES`、直前runの `BLOCKED_UNAPPROVED_FETCH` は履歴のままです。
+
+HTTPS全通信・観測前に離脱した子processの完全捕捉は保証しません。共有CODEX_HOMEのcache差分は他セッションに由来する場合もあり、全更新の排他的帰属は未確認です。圧縮packが省略した実装本体・例外・test coverageは生成文書でも未確認です。shell sandboxはMCP・hooks・plugin起動時の作用全体を遮断するものではありません。
+
+検証記録はその候補の実体hashと絶対パスに固定されています。別環境で起動できる一般的なqualificationではなく、記録・依存不一致は起動前に停止します。記録を手編集してこの検査を通してはいけません。今回のsource統合では文書・配布対象・回帰testも更新するため、将来installするreleaseのidentityは受入候補と別になります。新配布物の導入・実LLM再受入を実行したとは扱いません。
+
+source統合時のlocal検証はUbuntu 25.10 / Python 3.13.7で88 tests中86成功・Windows専用2skip。修正済み監督helperがwrapperと実receiverを区別し、PID/start ticksで所有確認したreceiverへSIGINTを送り正常終了する回帰を含みます。ACP差分は既存原本の隔離コピーへ適用し、受入済みbundleと同じSHA256になること、Node構文、qualificationと実依存の一致を確認しました。今回のcommitに対するGitHub CI・Windows実行結果は、このlocal検証から推定しません。
+
+## 0.3.0 Ubuntu scopeの実装CI履歴（context修正前）
 
 判定は **実装CI成功・実LLM受入未完了** です。検証した実装HEADは `e0272b53cf70ce6a0d12510eb7ca6895e50696f1`、branchは `feat/terrain-integration`。この文書と受領inventoryの更新は、その実装に対する文書変更です。
 

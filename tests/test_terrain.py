@@ -236,10 +236,11 @@ class TerrainTests(unittest.TestCase):
         self.assertIn(str(self.root / provider.CONTEXT_META), str(raised.exception))
 
     def test_preflight_binds_engine_auth_and_rejects_overrides(self):
-        acp = {'path': str(self.binary), 'sha256': runtime.file_hash(self.binary),
+        acp = {'qualification_sha256':runtime.CONTEXT_QUALIFICATION_SHA256,'path': str(self.binary), 'sha256': runtime.file_hash(self.binary),
                'codex': {'path': str(self.binary), 'sha256': runtime.file_hash(self.binary)},
                'codex_home': str(self.host)}
-        with patch.dict(os.environ, {'CODEX_PATH': str(self.binary), 'CODEX_HOME': str(self.host)}), patch.object(runtime, 'execute') as execute:
+        capability = {'engine_sha256': runtime.file_hash(self.binary), 'mcp': {'command': str(self.binary), 'args': [], 'enabled': True, 'env': {}}}
+        with patch.object(runtime, 'verify_context_capability', return_value=capability), patch.dict(os.environ, {'CODEX_PATH': str(self.binary), 'CODEX_HOME': str(self.host)}), patch.object(runtime, 'execute') as execute:
             self.assertEqual(self.real_preflight({'codex_acp': acp}, self.root), acp)
             argv, cwd, env = execute.call_args.args[:3]
             self.assertEqual(argv, [str(self.binary), 'login', 'status'])
@@ -465,10 +466,11 @@ class TerrainTests(unittest.TestCase):
     def test_process_environment_isolated_and_literal_arguments(self):
         actual_home = os.environ.get('HOME')
         actual_registry = os.environ.get('TERRAIN_REGISTRY_FILE')
-        with runtime.terrain_environment(self.root, self.root / provider.REGISTRY, {'path': str(self.binary), 'codex': {'path': str(self.binary)}, 'codex_home': str(self.host)}) as (env, home):
+        capability = {'engine_sha256': runtime.file_hash(self.binary), 'mcp': {'command': str(self.binary), 'args': [], 'enabled': True, 'env': {}}}
+        with patch.object(runtime, 'verify_context_capability', return_value=capability), runtime.terrain_environment(self.root, self.root / provider.REGISTRY, {'path': str(self.binary), 'codex': {'path': str(self.binary)}, 'codex_home': str(self.host)}) as (env, home):
             self.assertNotEqual(env['HOME'], actual_home)
             self.assertEqual(env['TERRAIN_REGISTRY_FILE'], str(self.root / provider.REGISTRY))
-            self.assertEqual(env['INITIAL_AGENT_MODE'], 'read-only')
+            self.assertEqual(env['INITIAL_AGENT_MODE'], runtime.CONTEXT_MODE)
             self.assertEqual(env['TERRAIN_ACP_BINARY'], str(self.binary))
             settings = json.loads((home / '.terrain/settings.json').read_text())
             self.assertFalse(settings['acp']['auto_approve'])

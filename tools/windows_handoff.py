@@ -29,6 +29,8 @@ FILES = (
     'tests/test_aidev.py', 'tests/test_portability.py', 'tools/windows_handoff.py',
     'terrain_runtime.py', 'terrain_provider.py', 'terrain-0.9.5-aidev.patch', 'TERRAIN.md',
     'tests/test_terrain.py', '.github/workflows/terrain.yml', 'tools/terrain_ci.py',
+    'context-qualification.json', 'tests/test_context_contract.py', 'tools/context_supervisor.py',
+    'codex-acp-1.11.0-context.patch',
 )
 
 

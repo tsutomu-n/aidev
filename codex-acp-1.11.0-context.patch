@@ -1,0 +1,168 @@
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -22097,9 +22097,23 @@
+ // src/CodexJsonRpcConnection.ts
+ function startCodexConnection(codexPath, env) {
+   const spawnEnv = env ?? process.env;
++  const startupArgs = ["app-server"];
++  if (spawnEnv.INITIAL_AGENT_MODE === "aidev-context-read-only") {
++    if (process.platform !== "linux" || !codexPath?.startsWith("/")) throw new Error("Context mode requires a pinned Linux engine");
++    const config = JSON.parse(spawnEnv.CODEX_CONFIG || "{}");
++    const flatten = (value, keys) => {
++      if (value !== null && typeof value === "object" && !Array.isArray(value)) {
++        for (const [key, child] of Object.entries(value)) flatten(child, [...keys, key]);
++      } else {
++        if (value === null || keys.some(k => !/^[A-Za-z0-9_-]+$/.test(k))) throw new Error("Unsupported startup config key/value");
++        startupArgs.push("-c", keys.join(".") + "=" + JSON.stringify(value));
++      }
++    };
++    flatten(config, []);
++  }
+   let codex;
+   if (codexPath) {
+-    codex = process.platform === "win32" ? spawn(`"${codexPath}" app-server`, { shell: true, env: spawnEnv }) : spawn(codexPath, ["app-server"], { env: spawnEnv });
++    codex = process.platform === "win32" ? spawn(`"${codexPath}" app-server`, { shell: true, env: spawnEnv }) : spawn(codexPath, startupArgs, { env: spawnEnv });
+   } else {
+     const bundledCodexPath = createRequire(import.meta.url).resolve("@openai/codex/bin/codex.js");
+     codex = spawn(process.execPath, [bundledCodexPath, "app-server"], { env: spawnEnv });
+@@ -27255,6 +27269,13 @@
+     this.sandboxPolicy = sandboxPolicy;
+     this.sandboxMode = sandboxMode;
+   }
++  static ContextReadOnly = new _AgentMode(
++    "aidev-context-read-only", "Context: strict read-only", "No writes, network or escalation",
++    "standard", "never", "user", {type: "readOnly", networkAccess: false}, "read-only"
++  );
++  static contextReadOnlyMode() {
++    return process.env.INITIAL_AGENT_MODE === "aidev-context-read-only" ? _AgentMode.ContextReadOnly : null;
++  }
+   static ReadOnly = new _AgentMode(
+     "read-only",
+     "Ask for approval",
+@@ -27329,7 +27350,7 @@
+     };
+   }
+   static all() {
+-    return [_AgentMode.ReadOnly, _AgentMode.Agent, _AgentMode.AgentFullAccess];
++    return [_AgentMode.ReadOnly, _AgentMode.Agent, _AgentMode.AgentFullAccess, _AgentMode.ContextReadOnly];
+   }
+   static find(modeId) {
+     const match = _AgentMode.all().find((m) => m.id === modeId);
+@@ -28376,6 +28397,7 @@
+     return settingsModelProvider?.config?.model_provider ?? null;
+   }
+   async resumeSession(request, onSubscribed) {
++    if (AgentMode.contextReadOnlyMode()) throw new Error("Context mode supports fresh threads only");
+     const additionalDirectories = readAdditionalDirectories(request.cwd, request.additionalDirectories, request._meta);
+     await this.refreshSkills(request.cwd, additionalDirectories);
+     const response = await this.codexClient.threadResume({
+@@ -28399,6 +28421,7 @@
+     };
+   }
+   async forkSession(request) {
++    if (AgentMode.contextReadOnlyMode()) throw new Error("Context mode supports fresh threads only");
+     const additionalDirectories = readAdditionalDirectories(request.cwd, request.additionalDirectories, request._meta);
+     return await forkSession(request, additionalDirectories, {
+       codexClient: this.codexClient,
+@@ -28411,6 +28434,7 @@
+     });
+   }
+   async loadSession(request, onSubscribed) {
++    if (AgentMode.contextReadOnlyMode()) throw new Error("Context mode supports fresh threads only");
+     const additionalDirectories = readAdditionalDirectories(request.cwd, request.additionalDirectories, request._meta);
+     await this.refreshSkills(request.cwd, additionalDirectories);
+     const response = await this.codexClient.threadResume({
+@@ -28444,11 +28468,19 @@
+   async newSession(request) {
+     const additionalDirectories = readAdditionalDirectories(request.cwd, request.additionalDirectories, request._meta);
+     await this.refreshSkills(request.cwd, additionalDirectories);
++    const contextMode = AgentMode.contextReadOnlyMode();
++    if (contextMode && (additionalDirectories.length || request.mcpServers.length)) {
++      throw new Error("Context generation rejects extra roots and session MCP overrides");
++    }
+     const response = await this.codexClient.threadStart({
++      ...(contextMode ? {sandbox: "read-only", approvalPolicy: "never", approvalsReviewer: "user"} : {}),
+       config: await this.createSessionConfig(request.cwd, additionalDirectories, request.mcpServers),
+       modelProvider: this.getModelProvider(),
+       cwd: request.cwd
+     });
++    if (contextMode && (response.sandbox?.type !== "readOnly" || response.sandbox.networkAccess !== false || response.approvalPolicy !== "never")) {
++      throw new Error("Context generation requires effective readOnly/no-network/never permissions");
++    }
+     const codexModels = await this.fetchAvailableModels();
+     if (codexModels.length === 0) {
+       throw new Error("Codex did not return any models");
+@@ -28595,6 +28627,7 @@
+     return await this.getCurrentModelProvider() ?? "openai";
+   }
+   async refreshSkills(cwd, additionalRoots) {
++    if (AgentMode.contextReadOnlyMode() && additionalRoots.length) throw new Error("Context generation rejects extra roots");
+     if (!cwd) {
+       return;
+     }
+@@ -28691,6 +28724,9 @@
+     });
+   }
+   async sendPrompt(request, agentMode, modelId, serviceTier, disableSummary, cwd, additionalDirectories, onTurnStarted, shouldCancel) {
++    const contextMode = AgentMode.contextReadOnlyMode();
++    if (contextMode && additionalDirectories.length) throw new Error("Context generation rejects extra roots");
++    agentMode = contextMode ?? agentMode;
+     const input = buildPromptItems(request.prompt);
+     const effort = modelId.effort;
+     await this.refreshSkills(cwd, additionalDirectories);
+@@ -29237,6 +29273,7 @@
+       }
+     });
+     this.connection.onRequest(CommandExecutionApprovalRequest, async (params) => {
++      if (AgentMode.contextReadOnlyMode()) return {decision: "cancel"};
+       if (this.isStaleTurn(params.threadId, params.turnId)) {
+         return { decision: "cancel" };
+       }
+@@ -29247,6 +29284,7 @@
+       return await handler.handleCommandExecution(params);
+     });
+     this.connection.onRequest(FileChangeApprovalRequest, async (params) => {
++      if (AgentMode.contextReadOnlyMode()) return {decision: "cancel"};
+       if (this.isStaleTurn(params.threadId, params.turnId)) {
+         return { decision: "cancel" };
+       }
+@@ -29257,6 +29295,7 @@
+       return await handler.handleFileChange(params);
+     });
+     this.connection.onRequest(PermissionsApprovalRequest, async (params) => {
++      if (AgentMode.contextReadOnlyMode()) return {permissions: {}, scope: "turn", strictAutoReview: false};
+       if (this.isStaleTurn(params.threadId, params.turnId)) {
+         return { permissions: {}, scope: "turn", strictAutoReview: false };
+       }
+@@ -29967,6 +30006,15 @@
+     return { ready, failed, cancelled };
+   }
+   async sendRequest(request) {
++    if (AgentMode.contextReadOnlyMode()) {
++      if (["thread/resume", "thread/fork"].includes(request.method)) throw new Error("Context mode supports fresh threads only");
++      if (request.method === "thread/start" && (request.params?.sandbox !== "read-only" || request.params.approvalPolicy !== "never")) throw new Error("Context thread permissions mismatch");
++      if (["review/start", "thread/goal/set", "thread/settings/update", "turn/settings/update"].includes(request.method)) throw new Error("Unsupported context execution path");
++      if (request.method === "turn/start") {
++        const p = request.params;
++        if (p.approvalPolicy !== "never" || p.sandboxPolicy?.type !== "readOnly" || p.sandboxPolicy.networkAccess !== false || p.sandboxPolicy.writableRoots?.length) throw new Error("Context turn permissions mismatch");
++      }
++    }
+     for (const callback of this.codexEventHandlers) {
+       callback({ eventType: "request", ...request });
+     }
+@@ -31839,6 +31887,7 @@
+    *                        not turn.items — turn.items contains only agent output).
+    */
+   onTurnCompleted(userPromptText) {
++    if (AgentMode.contextReadOnlyMode()) return;
+     if (this.generated) return;
+     const src = this.getSessionTitleSource();
+     if (src === "explicit" || src === "unknown") return;
+@@ -33219,6 +33268,7 @@
+     return params.value;
+   }
+   applyModeChange(sessionState, value) {
++    if (AgentMode.contextReadOnlyMode() && value !== "aidev-context-read-only") throw new Error("Context mode cannot be widened");
+     const newMode = AgentMode.find(value);
+     if (!newMode) {
+       throw RequestError.invalidParams();

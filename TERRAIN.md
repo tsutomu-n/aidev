@@ -60,7 +60,11 @@ aidev terrain refresh --build-context
 
 このflagはCodex ACPによるLLM処理・外部送信を許可する操作です。同じ入力・runtime・policy・出力hashなら再生成しません。flagなしはローカルscan/packのみで、既存contextを削除せずstaleと記録します。
 
-初期サポートは `@agentclientprotocol/codex-acp 1.11.0`。setupはACPに加えて、選択したCodex engineのpath/hash/versionとCODEX_HOME、JS版ではNode実体も登録します。engineは明示的な `CODEX_PATH`、未指定ならPATHのCodex実体を使います。開発用CodexとACP同梱engineの版は別です。登録前に意図した実体を確認してください。生成前は登録engineで `login status` を実行し、同じengine・認証先をACPへ渡します。登録と異なるCODEX_PATH/CODEX_HOMEや変更済みbinaryは停止します。旧ACP登録にはengine記録がないため、setupの `--approve --replace` で再検証が必要です。JS package依存全体をhash固定する保証ではありません。不足時は停止し、利用者によるloginを案内します。browser・loginは自動起動しません。ACP binaryと空argsを分離し、JSON stdio設定と `INITIAL_AGENT_MODE=read-only` を使います。native LLM設定は追加しません。permissionの自動承認は無効です。
+context生成には `@agentclientprotocol/codex-acp 1.11.0` の検証済み修正版が必要です。version一致だけでは起動せず、配布物内の [/home/tn/projects/aidev/context-qualification.json](context-qualification.json) と固定hash、ACP・Codex・Node・MCP entry・依存treeをsetup、生成前、起動直前に照合します。記録は特定Linux環境の絶対パスにも結び付くため、他環境での利用許可ではありません。記録の手編集やhash差し替えで検査を通さず、別実体は別の検証が必要です。
+
+setupは選択したengineのpath/hash/version、CODEX_HOME、JS版のNode実体とqualification hashを登録します。`CODEX_PATH` とPATHのNodeは検証記録の実体を指定してください。生成前は登録engineで `login status` を実行し、同じengine・認証先をACPへ渡します。登録と異なるCODEX_PATH/CODEX_HOMEや変更済み依存は停止します。旧登録は検証済み実体を用いてsetupの `--approve --replace` が必要ですが、未検証ACPを実行して検証済みに変える操作ではありません。browser・loginは自動起動しません。
+
+ACP binaryと空argsを分離し、JSON stdioと専用mode `INITIAL_AGENT_MODE=aidev-context-read-only` を使います。threadは `read-only / never`、各turnは `readOnly / networkAccess=false / never`。権限不一致、追加root、session MCP上書き、resume/fork、mode拡大を拒否し、補助タイトル生成も行いません。通常ACP modeの意味は維持します。MCPは検証済みNodeと展開済みentryを直接起動し、command・args・必要envだけを起動overlayで渡します。通常のplugin・他のMCP・hooksを無効化する変更はしません。
 
 Terrainの起動自体にHOME側asset展開があるため、wrapperは一時HOMEと設定を用意します。`.env` の自動読込みを避けるためTerrain launcherのcwdはその一時HOME、対象repoは絶対 `--repo-path`・registry・環境で指定します。ACPのworking directoryは対象repoです。認証をコピーせず登録と一致する既存の `CODEX_HOME` を使います。起動ごとのPATHでは承認Terrainを優先し、JS版ACPでは登録Nodeも優先します。global PATHは変更しません。keyring等の認証方式は実環境で別途受入が必要です。
 
@@ -146,10 +150,12 @@ AGENTSの既存本文を保全し、aidev管理marker内だけを更新します
 - patchはMarketLens正式patchを基礎に、context path/H2/Unicode補正、OpenAPI gitignore、ACP mode伝播と空白pathのavailability判定を含む3ファイル。
 - patch SHA256（LF正規化）: `893efe60ec622ef6741e20d8a81c840124de60b823e842854c789ee9681f40c1`。実sourceから算出し、approval/build manifestへ記録します。
 
+ACP側の修正は [/home/tn/projects/aidev/codex-acp-1.11.0-context.patch](codex-acp-1.11.0-context.patch) に収録しています。対象は既存1.11.0のJS配布物内 `dist/index.js` で、変更前SHA256は `3527bdaf90a219175c742576963e6d9e943e4ea5fbdbc3e04e7f57f9a9e11343`、変更後は `d38570bf20023bbf32f89b007bafee3f0af9fa34a0eab60b445955ee595ccbc0`。TypeScript再buildやpackageの自動取得ではありません。既存配布物への差分を保存したもので、patch適用だけで別環境のqualificationを満たすとは扱いません。
+
 ## 検証と制限
 
 Pythonのfixture testsは既存Ubuntu/Windows × Python 3.11/3.13 workflowに含まれます。別のTerrain workflowはUbuntu 24.04 x86_64でexact upstream、patch適用範囲、focused Rust tests、release build、behavior smokeを検査します。runtimeのcore/agent/CLI full testsはclean baselineとtest名・failure内容を比較し、新規failureを拒否します。desktop GUIはaidev配布runtimeの対象外です。upstream全体へのformat変更は行いません。
 
-live Codex ACPは通常CIに含めません。実認証・外部送信許可のあるdisposable fixtureで別受入とし、未実施はUNVERIFIEDです。live受入では生成前後のsource fingerprintとGit statusを保存・比較し、source modificationが0であることを実測します。`INITIAL_AGENT_MODE=read-only` の設定だけではsource不変の証明にしません。Windows core CI、Ubuntu runtime CI、通常利用環境への導入、実LLM生成の完了はsource実装と区別し、現在の結果はSTATUSに記録します。
+live Codex ACPは通常CIに含めません。実認証・外部送信許可のあるdisposable fixtureで別受入とし、未実施はUNVERIFIEDです。live受入では生成前後のsource fingerprintとGit statusを保存・比較し、source modificationが0であることを実測します。mode設定だけではsource不変の証明にしません。今回の固定候補は通常CODEX_HOMEと起動overlayで実LLM受入を完了しました。非LLM qualificationが使用した隔離設定や、通常導入・Windows受入とは区別し、結果は [/home/tn/projects/aidev/STATUS.md](STATUS.md) に記録します。shell sandboxはMCP・hook自身の作用を防ぎません。
 
 submodule入力、symlink/reparse/hardlinkを含む入力・生成先は初版では停止します。read-pack-fileはupstreamの圧縮packに基づく探索であり、live sourceの厳密転記ではありません。自動redaction、watch daemon、Git hook、Litho/SDD自動生成、plugin frameworkはありません。

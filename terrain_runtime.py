@@ -21,6 +21,63 @@ TERRAIN_VERSION = "0.9.5"
 TERRAIN_UPSTREAM_SHA = "8d888ae13a6b1253406cac379c8eb30037c96862"
 TERRAIN_RUST_MIN = "1.94"
 CODEX_ACP_VERSION = "1.11.0"
+CONTEXT_MODE = "aidev-context-read-only"
+# Set only after all non-LLM gates pass for the exact artifact; version is insufficient.
+CONTEXT_QUALIFICATION_SHA256 = '1ed5223b5e6477cf12ea7a07386dd9abea673b38e79b9a7341aac6ea412a78d7'
+CONTEXT_QUALIFICATION = Path(__file__).with_name("context-qualification.json")
+
+
+def verify_context_capability(path, root=None):
+    path = safe_absolute(path, root, True)
+    if not CONTEXT_QUALIFICATION_SHA256 or not CONTEXT_QUALIFICATION.is_file():
+        raise Problem("未検証ACP: strict context capabilityの検証記録がありません（起動拒否）")
+    if file_hash(CONTEXT_QUALIFICATION) != CONTEXT_QUALIFICATION_SHA256:
+        raise Problem("ACP capability検証記録のhash不一致")
+    try:
+        record = json.loads(CONTEXT_QUALIFICATION.read_text())
+        if record["mode"] != CONTEXT_MODE or record["acp_sha256"] != file_hash(path):
+            raise Problem("旧ACPまたは未検証ACPです（起動拒否）")
+        if any(record["gates"].get(k) != "PASS" for k in ("protocol", "codex_policy", "os_deny", "mcp_startup", "recovery")):
+            raise Problem("ACP capability検証が未完了です")
+        for name, expected in record.get("trees", {}).items():
+            if dependency_tree_hash(safe_absolute(name)) != expected:
+                raise Problem(f"ACP/MCP依存treeが変更されています: {name}")
+        for name, expected in record["files"].items():
+            item = safe_absolute(name)
+            if not item.is_file() or file_hash(item) != expected:
+                raise Problem(f"ACP/MCP依存が欠落または変更されています: {item}")
+        if not record["files"] or record.get("schema_version") != 1:
+            raise Problem("ACP capability検証記録のschemaが不正です")
+        for role in ("engine", "node"):
+            expected = record[role]
+            executable = safe_absolute(expected["path"], executable=True)
+            if record["files"].get(str(executable)) != expected["sha256"] or file_hash(executable) != expected["sha256"]:
+                raise Problem(f"検証済み{role}のidentityと不一致です")
+        if record["engine"]["sha256"] != record["engine_sha256"]:
+            raise Problem("ACP engine identity不一致")
+        mcp = record["mcp"]
+        safe_absolute(mcp["command"], executable=True)
+        safe_absolute(mcp["args"][0])
+        if mcp["command"] not in record["files"] or mcp["args"][0] not in record["files"]:
+            raise Problem("MCP直接起動entryが未検証です")
+        return record
+    except (KeyError, IndexError, TypeError, ValueError, OSError) as exc:
+        raise Problem("ACP capability検証記録が不正です") from exc
+
+
+def dependency_tree_hash(root):
+    """Include relative names, bytes and link targets; never follow directory links."""
+    entries = {}
+    for path in sorted(root.rglob("*")):
+        name = path.relative_to(root).as_posix()
+        if path.is_symlink():
+            if not path.resolve().is_relative_to(root.resolve()):
+                raise Problem(f"依存tree外へのリンクは使用できません: {path}")
+            entries[name] = {"link": os.readlink(path)}
+        elif path.is_file():
+            entries[name] = file_hash(path)
+    return digest(json.dumps(entries, sort_keys=True).encode())
+
 PATCH = Path(__file__).parent / "terrain-0.9.5-aidev.patch"
 PATCH_FILES = {"crates/terrain-core/src/assets/agent_context.rs", "crates/terrain-core/src/ingest/openapi.rs", "crates/terrain-agent/src/acp.rs"}
 FOCUSED = [("terrain-core", "agent_context_recovery_tests"), ("terrain-core", "ingest::openapi::tests"), ("terrain-agent", "aidev_acp_tests")]
@@ -124,10 +181,25 @@ def terrain_environment(root, registry, acp=None):
             if key.startswith("TERRAIN_"):
                 del env[key]
         env.update(HOME=str(home), USERPROFILE=str(home), TERRAIN_REGISTRY_FILE=str(registry),
-                   TERRAIN_REPO_PATH=str(root), INITIAL_AGENT_MODE="read-only")
+                   TERRAIN_REPO_PATH=str(root), INITIAL_AGENT_MODE=CONTEXT_MODE if acp else "read-only")
         env["CODEX_HOME"] = os.environ.get("CODEX_HOME", str(Path.home() / ".codex"))
         env.pop("CODEX_PATH", None)
         if acp:
+            capability = verify_context_capability(acp["path"], root)
+            if acp.get("node") and capability.get("node") != acp["node"]:
+                raise Problem("検証済みACP Nodeと不一致です")
+            if capability["engine_sha256"] != file_hash(Path(acp["codex"]["path"])):
+                raise Problem("検証済みACP engineと不一致です")
+            try:
+                overlay = json.loads(env.get("CODEX_CONFIG", "{}"))
+                servers = overlay.setdefault("mcp_servers", {})
+                current = servers.setdefault("chrome-devtools", {})
+                for field in ("command", "args"):
+                    current[field] = capability["mcp"][field]
+                current.setdefault("env", {}).update(capability["mcp"]["env"])
+            except (ValueError, TypeError, AttributeError) as exc:
+                raise Problem("CODEX_CONFIGが不正です") from exc
+            env["CODEX_CONFIG"] = json.dumps(overlay)
             env["CODEX_PATH"] = acp["codex"]["path"]
             env["CODEX_HOME"] = acp["codex_home"]
             if acp.get("node"):
@@ -197,6 +269,9 @@ def preflight_acp(record, root):
     if not acp:
         raise Problem("Codex ACPをsetup --codex-acp PATH --approve --replaceで明示登録してください")
     path = safe_absolute(acp["path"], root, True)
+    capability = verify_context_capability(path, root)
+    if acp.get("qualification_sha256") != CONTEXT_QUALIFICATION_SHA256:
+        raise Problem("ACP検証記録が登録時と一致しません。setupで再検証してください")
     if file_hash(path) != acp["sha256"]:
         raise Problem("Codex ACP hashが変更されました")
     if not acp.get("codex"):
@@ -293,6 +368,14 @@ def setup(binary, codex_acp=None, approve=False, replace=False, root=None, timeo
     config = foundation_path()
     if not approve:
         return {"status": "PLAN", "writes": False, "config": str(config), "terrain": str(binary), "codex_acp": str(acp) if acp else None, "next": "--approveでversionとbehavior smokeを検証して登録"}
+    if acp:
+        capability = verify_context_capability(acp, root)  # Refuse old ACP before any subprocess.
+        selected_engine = os.environ.get("CODEX_PATH") or shutil.which("codex")
+        selected_node = shutil.which("node")
+        if not selected_engine or str(Path(selected_engine).resolve()) != capability["engine"]["path"]:
+            raise Problem("検証済みACP engineの絶対パスをCODEX_PATHに指定してください")
+        if not selected_node or str(Path(selected_node).resolve()) != capability["node"]["path"]:
+            raise Problem("検証済みNodeをPATHの先頭に指定してください")
     before = file_hash(binary)
     check_version(binary, TERRAIN_VERSION)
     smoke = behavioral_smoke(binary, timeout)
@@ -305,7 +388,8 @@ def setup(binary, codex_acp=None, approve=False, replace=False, root=None, timeo
         check_version(acp, CODEX_ACP_VERSION)
         if file_hash(acp) != before_acp:
             raise Problem("検証中にCodex ACPが変更されました")
-        record["codex_acp"] = {"path": str(acp), "version": CODEX_ACP_VERSION, "sha256": before_acp}
+        record["codex_acp"] = {"path": str(acp), "version": CODEX_ACP_VERSION, "sha256": before_acp,
+                               "qualification_sha256": CONTEXT_QUALIFICATION_SHA256}
         # Bind the engine checked for authentication to the actual ACP child.
         selected = os.environ.get("CODEX_PATH") or shutil.which("codex")
         if not selected:
@@ -327,6 +411,8 @@ def setup(binary, codex_acp=None, approve=False, replace=False, root=None, timeo
             if file_hash(node) != node_hash:
                 raise Problem("検証中にNodeが変更されました")
             record["codex_acp"]["node"] = {"path": str(node), "sha256": node_hash, "version": version}
+    if acp:
+        verify_context_capability(acp, root)  # Recheck all dependencies before registration.
     config.parent.mkdir(parents=True, exist_ok=True)
     with directory_lock(config.parent):
         safe_absolute(config)
