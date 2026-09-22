@@ -18,7 +18,7 @@
     "WINDOWS_HANDOFF.md": "00c08eba311ee67be33bbd759845fcc628bc4db075178f342afb00f0970808e0",
     "tests/test_aidev.py": "84d2373d961bb828981f0c88c9803fd60fa73dfdec97a9c589b144e08c899465",
     "tests/test_portability.py": "e58e04d338a916542e48a26333b309bd226ca0ed96d36de886ac06cca7b823a1",
-    "tools/windows_handoff.py": "f1f50c6f07ea271225734e243af243f7abda59a581b6752c58f1c3721e7ebf88",
+    "tools/windows_handoff.py": "e38857c34c9b81f8fac1cee0fa0f7b766c6498604fa20d2a17f2f98d4f8c5515",
     "terrain_runtime.py": "a23646f59c4ed073dd145c44d5ab5123de3a269d8c341aa63d89389c60b5667d",
     "terrain_provider.py": "57770d434ef03e45c754c06265dae464207ee8c9aabc743f149f8a352940d358",
     "terrain-0.9.5-aidev.patch": "893efe60ec622ef6741e20d8a81c840124de60b823e842854c789ee9681f40c1",
@@ -29,6 +29,7 @@
     "context-qualification.json": "d2fc0a6d669f1183da3dd408ae6431e1e70c12f040784abad38293e16b427a8a",
     "tests/test_context_contract.py": "c041e19cdb9667cc7110fbf2ea25bf828a0b73106567c9cc337581b1ef46eed5",
     "tools/context_supervisor.py": "a631cbc66dec874ce95506882f9e45b9fd39799ed412b0e405b1c3c8d104b080",
-    "codex-acp-1.11.0-context.patch": "5b65e1905dffda01b0be9a00d7527156ed987fd42ae32051958ef9165837e883"
+    "codex-acp-1.11.0-context.patch": "5b65e1905dffda01b0be9a00d7527156ed987fd42ae32051958ef9165837e883",
+    "UBUNTU_ACCEPTANCE.md": "af3c4225cf865893b1cf2fe3c129ef9ceb152da8eabf80b4a29739772a4373c6"
   }
 }
