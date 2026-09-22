@@ -12,6 +12,8 @@ known-fileの小修正ではlive sourceを直接読みます。architecture・mu
 
 ## マシンで一度だけ準備
 
+この端末の通常導入では、検証済みTerrain・ACP・MCPの既存実体を `/home/tn/.local/share/aidev/dependencies` の内容hash別directoryへコピーし、移設後の全gateを検証して登録しています。Codex・Nodeは既存の版固定実体を使います。以前の隔離候補のパスへ戻したりqualificationを手編集したりせず、実行時に照合される登録とhashを維持してください。今回の通常受入結果は [/home/tn/projects/aidev/STATUS.md](STATUS.md) にあります。
+
 ```sh
 aidev terrain install --allow-download
 # cleanなexact upstream sourceを使い、network cloneを避ける場合:
@@ -156,6 +158,6 @@ ACP側の修正は [/home/tn/projects/aidev/codex-acp-1.11.0-context.patch](code
 
 Pythonのfixture testsは既存Ubuntu/Windows × Python 3.11/3.13 workflowに含まれます。別のTerrain workflowはUbuntu 24.04 x86_64でexact upstream、patch適用範囲、focused Rust tests、release build、behavior smokeを検査します。runtimeのcore/agent/CLI full testsはclean baselineとtest名・failure内容を比較し、新規failureを拒否します。desktop GUIはaidev配布runtimeの対象外です。upstream全体へのformat変更は行いません。
 
-live Codex ACPは通常CIに含めません。実認証・外部送信許可のあるdisposable fixtureで別受入とし、未実施はUNVERIFIEDです。live受入では生成前後のsource fingerprintとGit statusを保存・比較し、source modificationが0であることを実測します。mode設定だけではsource不変の証明にしません。今回の固定候補は通常CODEX_HOMEと起動overlayで実LLM受入を完了しました。非LLM qualificationが使用した隔離設定や、通常導入・Windows受入とは区別し、結果は [/home/tn/projects/aidev/STATUS.md](STATUS.md) に記録します。shell sandboxはMCP・hook自身の作用を防ぎません。
+live Codex ACPは通常CIに含めません。実認証・外部送信許可のあるdisposable fixtureで別受入とし、未実施はUNVERIFIEDです。live受入では生成前後のsource fingerprintとGit statusを保存・比較し、source modificationが0であることを実測します。mode設定だけではsource不変の証明にしません。固定候補の受入後、移設済み依存と通常launcher・通常CODEX_HOMEでも実LLM受入を完了しました。非LLM qualificationの隔離設定、導入前の候補受入、今回の通常受入、Windows未受入を区別し、結果は [/home/tn/projects/aidev/STATUS.md](STATUS.md) に記録します。shell sandboxはMCP・hook自身の作用を防ぎません。
 
 submodule入力、symlink/reparse/hardlinkを含む入力・生成先は初版では停止します。read-pack-fileはupstreamの圧縮packに基づく探索であり、live sourceの厳密転記ではありません。自動redaction、watch daemon、Git hook、Litho/SDD自動生成、plugin frameworkはありません。

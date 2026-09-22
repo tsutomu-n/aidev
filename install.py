@@ -190,6 +190,45 @@ def clear_journal():
         journal_path().unlink()
 
 
+def managed_helper(path, previous):
+    """Recognize old links or the exact, retained three-file legacy bundle."""
+    if previous is None:
+        return False
+    if path.is_symlink():
+        return path.resolve() == previous / path.name
+    if not path.is_file() or is_link(path) or path.stat().st_nlink != 1:
+        return False
+    manifest = json.loads((previous / "installation.json").read_text(encoding="utf-8"))
+    return (manifest.get("files") == LEGACY_HASHES and path.name in LEGACY_HASHES
+            and hashes(previous, LEGACY_HASHES) == LEGACY_HASHES
+            and hashes(path.parent, (path.name,))[path.name] == LEGACY_HASHES[path.name])
+
+
+def publish_helpers(release, previous, check_only=False):
+    for name in FILES:
+        path = TARGET / name
+        if path.is_symlink() and path.resolve() == release / name:
+            continue
+        exists = path.exists() or path.is_symlink()
+        if exists and not managed_helper(path, previous):
+            raise ValueError(f"管理pathに利用者の変更があります: {path}")
+        if check_only:
+            continue
+        if exists:
+            saved = path.with_name(".aidev-link-backup-" + uuid.uuid4().hex)
+            os.rename(path, saved)
+            # Verify the moved entry too; never discard a concurrent edit.
+            valid = (saved.is_symlink() and saved.resolve() == previous / name) or (
+                not is_link(saved) and saved.is_file() and saved.stat().st_nlink == 1
+                and name in LEGACY_HASHES
+                and hashlib.sha256(saved.read_bytes()).hexdigest() == LEGACY_HASHES[name])
+            if not valid:
+                if not path.exists() and not path.is_symlink():
+                    os.rename(saved, path)
+                raise ValueError(f"管理pathの退避中に変更があります: {path}（保全先: {saved}）")
+        path.symlink_to(release / name)  # exclusive creation preserves a competing writer
+
+
 def install(upgrade=False):
     run = runtime()
     for path in (TARGET.parent, ENTRY.parent):
@@ -215,15 +254,7 @@ def install(upgrade=False):
             if not WINDOWS:
                 old_name = record.get("previous")
                 old = release_root / old_name if isinstance(old_name, str) else None
-                for name in FILES:
-                    path = TARGET / name
-                    if path.is_symlink() and path.resolve() == previous / name:
-                        continue
-                    if path.exists() or path.is_symlink():
-                        if old is None or not path.is_symlink() or path.resolve() != old / name:
-                            raise ValueError(f"管理pathに利用者の変更があります: {path}")
-                        os.rename(path, path.with_name(".aidev-link-backup-" + uuid.uuid4().hex))
-                    path.symlink_to(previous / name)
+                publish_helpers(previous, old)
             clear_journal()
             print("中断したインストール処理を完了しました。")
             return previous
@@ -248,6 +279,8 @@ def install(upgrade=False):
             return release
         if entry_record() != entry_before:
             raise ValueError("準備中にコマンドの参照先が変更されました。上書きしません")
+        if not WINDOWS:
+            publish_helpers(release, previous, check_only=True)
         write_journal({"application": "aidev", "schema_version": 1, "release": release.name,
                        "phase": "publishing", "entry_before": entry_before,
                        "previous": previous.name if previous else None})
@@ -283,14 +316,7 @@ def install(upgrade=False):
                        "previous": previous.name if previous else None,
                        "entry_backup": str(backup) if backup else None})
         if not WINDOWS:
-            for name in FILES:
-                path = TARGET / name
-                if path.exists() or path.is_symlink():
-                    if previous is None or not path.is_symlink() or path.resolve() != previous / name:
-                        raise ValueError(f"管理pathに利用者の変更があります: {path}")
-                    saved = path.with_name(".aidev-link-backup-" + uuid.uuid4().hex)
-                    os.rename(path, saved)
-                path.symlink_to(release / name)
+            publish_helpers(release, previous)
         clear_journal()
         print(f"インストール完了: {ENTRY}")
         if previous:

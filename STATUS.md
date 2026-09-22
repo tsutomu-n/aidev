@@ -2,7 +2,30 @@
 
 入口：[/home/tn/projects/aidev/README.md](README.md) ／ 操作手順：[/home/tn/projects/aidev/USER_GUIDE.md](USER_GUIDE.md)
 
-## 0.3.0 context修正候補の実LLM受入
+## Ubuntu通常環境への導入・受入
+
+今回の通常環境は **UBUNTU_NORMAL_ACCEPTED**。旧0.1.0の3ファイル配置から0.3.0へ更新し、通常launcher `/home/tn/.local/bin/aidev` と通常認証 `/home/tn/.codex` で受入を実施しました。過去の隔離候補の成功とは別の結果です。
+
+| 項目 | 今回の結果 |
+|---|---|
+| 実測環境 | Ubuntu 25.10 x86_64 / Python 3.14.3 / Codex 0.155.1 / Node 24.20.0 / Terrain 0.9.5 |
+| 通常導入 | 既知hashの旧3ファイルをreleaseと元ファイルbackupへ保存して管理リンクへ移行。利用者変更・競合拒否・中断再開・復元fixture成功 |
+| 依存 | `/home/tn/.local/share/aidev/dependencies` の内容hash別配置へ既存Terrain・ACP・MCPをコピー。移設前後hash一致、package取得・更新なし |
+| qualification | 移設後protocol・実Codex権限・OS拒否・MCP起動・中断復旧がPASS。SHA256 `d2fc0a6d669f1183da3dd408ae6431e1e70c12f040784abad38293e16b427a8a` |
+| Python全suite | 92件中90成功、Windows専用2件skip。依存欠落・改変時の拒否も含む |
+| 実LLM | `gpt-6-astra / medium` で初回と機能変更後の更新を各1回。通常launcherから実行しsessionのmodel・effort・read-only/neverを照合 |
+| 再利用・鮮度 | 同一入力と生成物のみcommit後はreused、文書・生成log不変、ACP/app-server再起動なし。source変更後stale検出 |
+| 内容・保全 | 検索・読取り・主要記述とsource/tests/schemaの照合成功。生成前後source不変、通常設定・hooks・依存保全、観測した所有process残存0 |
+| 最終doctor | 受入fixtureで `TERRAIN_READY`。既存利用者repoへのinitは行っていない |
+| 同期 | 既存pluginの通常同期とcatalog cache更新を記録。plugin cache内容不変、新規plugin・依存package取得は観測なし |
+
+実LLM確認時のreleaseは `ceaf905fc016a8fdca25`、runtime identityは `eed5176dea5da0b99fd40199b97476bde5bd6baf2ba885923438a6e191de1fca`。その後の配布文書更新でrelease identityは変わります。最終receipt [/home/tn/projects/aidev/verification/normal-install-20260922T114000Z/final-install.json](/home/tn/projects/aidev/verification/normal-install-20260922T114000Z/final-install.json) で実行Python・patch・qualification・依存が受入対象と同一であることを照合します。詳細受入結果は [/home/tn/projects/aidev/verification/normal-install-20260922T114000Z/RESULT.md](/home/tn/projects/aidev/verification/normal-install-20260922T114000Z/RESULT.md)。これらはローカル検証証拠で配布対象外です。
+
+復旧基準は [/home/tn/projects/aidev/verification/normal-install-20260922T114000Z/deployment-before](/home/tn/projects/aidev/verification/normal-install-20260922T114000Z/deployment-before)、旧3ファイルreleaseは `/home/tn/.local/share/aidev/releases/2b0de1a5672a1f8b98cc`。今回の入口・管理リンク・Terrain登録だけを、切替後記録と一致する場合に復元します。並行変更は上書きしません。通常repoのcommit・push・PR・release・公開は行っていません。
+
+Windows実機・今回のCIは未実施。shell sandboxはMCP・hooks全体の作用を封じず、HTTPS内容・観測前に離脱した短命processの完全捕捉は保証しません。生成文書は圧縮packが省いた実装本体・test coverageを未確認として扱います。
+
+## 0.3.0 context修正候補の実LLM受入（導入前の履歴）
 
 隔離候補の判定は **UBUNTU_ACCEPTED**。受入済みのruntime/provider修正、固定ACP差分、検証記録、Linux監督helperをこのsourceへ統合しました。通常環境への導入・launcher切替・package releaseは行っていません。Windows Terrainは未サポートのままです。
 

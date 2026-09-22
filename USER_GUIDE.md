@@ -74,10 +74,10 @@ python3 /home/tn/.local/share/dev-capabilities/core/catalog.py list
 この環境では `/home/tn/projects/aidev` に取得済みです。未取得の環境で、その配置先が存在しない場合に限り次を使います。
 
 ```sh
-git clone --branch feat/terrain-integration --single-branch https://github.com/tsutomu-n/aidev.git /home/tn/projects/aidev
+git clone --branch main --single-branch https://github.com/tsutomu-n/aidev.git /home/tn/projects/aidev
 ```
 
-この手順は0.3.0検証用の `feat/terrain-integration` を取得します。確認済み実装HEADは `e0272b53cf70ce6a0d12510eb7ca6895e50696f1`。branchは更新され得るため取得後のHEADとSTATUSを照合してください。mainは確認時点で0.2.0です。0.3.0の実LLM受入と通常環境への導入は未完了なので、まず作業専用の検証環境で確認します。
+今回の作業元はmainの `e1173234ffbfa51d2b2fa8cfa5100550ff127ca7` に通常導入用の未commit差分を加えたものです。この端末の通常環境では0.3.0の実LLM受入まで完了しました。今回の差分は公開していないため、上記cloneだけで通常導入済み配布物と同一にはなりません。取得後のHEAD・差分・STATUSを照合し、別端末では独立に検証してください。
 
 本体のソースからインストールします。配置先の親フォルダーが未作成なら `mkdir -p` で用意します。
 
@@ -117,7 +117,7 @@ python3 /home/tn/projects/aidev/install.py --upgrade
 
 管理対象の旧版だけを更新し、旧releaseは保持します。管理外のコマンドやインストール済みファイルの利用者変更があれば停止します。Gitでソースを更新しただけではインストール版は変わりません。
 
-Windows launcherは導入を実行した確認済みPythonの絶対パスを固定し、消失時に別Pythonへfallbackしません。導入/upgrade中の競合、利用者変更、所有記録のない旧partialは上書きせず停止します。installer所有の中断だけは同じsource・同じPythonで通常installを再実行して復旧できます。実機での旧版upgrade受入は未実施です。検証範囲は [/home/tn/projects/aidev/STATUS.md](STATUS.md) を確認してください。
+Windows launcherは導入を実行した確認済みPythonの絶対パスを固定し、消失時に別Pythonへfallbackしません。導入/upgrade中の競合、利用者変更、所有記録のない旧partialは上書きせず停止します。installer所有の中断だけは同じsource・同じPythonで通常installを再実行して復旧できます。Windows実機での旧版upgrade受入は未実施です。Ubuntuの旧3ファイル配置からの通常更新と復旧fixtureは今回成功しました。検証範囲は [/home/tn/projects/aidev/STATUS.md](STATUS.md) を確認してください。
 
 <a id="first-run"></a>
 ## 3. 対象リポジトリを初期化する

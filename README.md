@@ -6,6 +6,8 @@ Windows 11 / UbuntuのGitリポジトリに、Serena・Graphify・code-review-gr
 
 ## Windows側で実装を引き継ぐ
 
+Ubuntuの通常launcher・依存移設・実LLM受入は完了しました。今回の導入差分は未commit・未公開で、別環境の受入は独立です。実測結果と制限は [/home/tn/projects/aidev/STATUS.md](STATUS.md) にあります。
+
 **W-01〜W-03のsource修正とfixtureのパス正規化は、Ubuntu/Windows × Python 3.11/3.13のCI全4構成で成功しました。Windows 11実機受入は未完了です。** 検証したcommit・CIの証拠と残る警告は [/home/tn/projects/aidev/STATUS.md](STATUS.md) を参照してください。Windows側のCodexには、ソースに含む [/home/tn/projects/aidev/WINDOWS_HANDOFF.md](https://github.com/tsutomu-n/aidev/blob/feat/terrain-integration/WINDOWS_HANDOFF.md) を渡してください。通常利用環境への導入は別途指示が必要です。
 
 ## マニュアルへ進む

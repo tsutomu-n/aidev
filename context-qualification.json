@@ -16,13 +16,13 @@
   "files": {
     "/home/tn/.volta/tools/image/node/24.20.0/bin/node": "89af8424dd53e560b1933f87ba650d8bf57c83ca5a04600eefb31f416aabbae7",
     "/home/tn/.codex/packages/standalone/releases/0.155.1-x86_64-unknown-linux-musl/bin/codex": "0753dfe1d8b87a52436deb13eb1c549661ef4c84fee2c5aa688385eebeccb761",
-    "/home/tn/.npm/_npx/4c14ca9d614c46a6/node_modules/chrome-devtools-mcp/build/src/bin/chrome-devtools-mcp.js": "9f380d06e1ac05b257e27e708c0cc4b4ba190e285ed6eb6c8aa50978d98a12c5",
-    "/home/tn/handoffs/aidev-context-fix-isolated-20260921/acp/package/dist/index.js": "d38570bf20023bbf32f89b007bafee3f0af9fa34a0eab60b445955ee595ccbc0",
-    "/home/tn/handoffs/aidev-context-fix-isolated-20260921/acp/package/package.json": "1ba98cab096e9eadd91638a81c0ad966b9857e874ad443edb90471ebfa2f7ede"
+    "/home/tn/.local/share/aidev/dependencies/mcp/1ae4349ce409bf8fe9ae674137ddcc016227128766a327692e667bb1db44b0a2/node_modules/chrome-devtools-mcp/build/src/bin/chrome-devtools-mcp.js": "9f380d06e1ac05b257e27e708c0cc4b4ba190e285ed6eb6c8aa50978d98a12c5",
+    "/home/tn/.local/share/aidev/dependencies/acp/8c52753d84e6dee1c8aee33f4970f70201e3a5086eaadef43084f0c9e5d015cc/package/dist/index.js": "d38570bf20023bbf32f89b007bafee3f0af9fa34a0eab60b445955ee595ccbc0",
+    "/home/tn/.local/share/aidev/dependencies/acp/8c52753d84e6dee1c8aee33f4970f70201e3a5086eaadef43084f0c9e5d015cc/package/package.json": "1ba98cab096e9eadd91638a81c0ad966b9857e874ad443edb90471ebfa2f7ede"
   },
   "trees": {
-    "/home/tn/.npm/_npx/4c14ca9d614c46a6/node_modules": "1ae4349ce409bf8fe9ae674137ddcc016227128766a327692e667bb1db44b0a2",
-    "/home/tn/handoffs/aidev-context-fix-isolated-20260921/acp/package": "8c52753d84e6dee1c8aee33f4970f70201e3a5086eaadef43084f0c9e5d015cc"
+    "/home/tn/.local/share/aidev/dependencies/mcp/1ae4349ce409bf8fe9ae674137ddcc016227128766a327692e667bb1db44b0a2/node_modules": "1ae4349ce409bf8fe9ae674137ddcc016227128766a327692e667bb1db44b0a2",
+    "/home/tn/.local/share/aidev/dependencies/acp/8c52753d84e6dee1c8aee33f4970f70201e3a5086eaadef43084f0c9e5d015cc/package": "8c52753d84e6dee1c8aee33f4970f70201e3a5086eaadef43084f0c9e5d015cc"
   },
   "gates": {
     "protocol": "PASS",
@@ -32,15 +32,15 @@
     "recovery": "PASS"
   },
   "evidence": {
-    "/home/tn/handoffs/aidev-context-fix-isolated-20260921/evidence/run-20260921T142308Z/entry-2/result.json": "192ab4417762476dd8a0521c9b80e07f2946dcb4af0609416c605e09e1ec18f4",
-    "/home/tn/handoffs/aidev-context-fix-isolated-20260921/evidence/run-20260921T142308Z/codex-3/codex-nonllm.json": "7ee56564ae42db61af7be27fbf66dc5aa6bba0642fe54b14690e953ad4ae6a69",
-    "/home/tn/handoffs/aidev-context-fix-isolated-20260921/evidence/run-20260921T142308Z/startup-2/result.json": "ca6823b6fe4486b210e94bb8c47798cba0cb8c540c0025fb1fdde6d118fe6621",
-    "/home/tn/handoffs/aidev-context-fix-isolated-20260921/evidence/run-20260921T142308Z/recovery-4/result.json": "cf668725f2e1e6cceaceb4d5e4a7dccde9a0945daf39d29dcf9ca533c01248dd"
+    "/home/tn/projects/aidev/verification/normal-install-20260922T114000Z/check_entry/result.json": "9497f49b7eef0535a31cefc0ea24ef92ae62ce8fd400c210cd300e535333b1d8",
+    "/home/tn/projects/aidev/verification/normal-install-20260922T114000Z/check_codex/codex-nonllm.json": "27c6dc6cfe379abbc67536d62dc83d630ab29c533899177d8bfec55dd62b317b",
+    "/home/tn/projects/aidev/verification/normal-install-20260922T114000Z/check_startup/result.json": "889e7a7dc2c06a04d417444182af2a924d8d5a94321fec45d4ea7184583a800a",
+    "/home/tn/projects/aidev/verification/normal-install-20260922T114000Z/check_recovery/result.json": "3296e0da3283b26f548c666c3dbc2b1c8a1d32bc047c769f93f6594ba7f36f5f"
   },
   "mcp": {
     "command": "/home/tn/.volta/tools/image/node/24.20.0/bin/node",
     "args": [
-      "/home/tn/.npm/_npx/4c14ca9d614c46a6/node_modules/chrome-devtools-mcp/build/src/bin/chrome-devtools-mcp.js",
+      "/home/tn/.local/share/aidev/dependencies/mcp/1ae4349ce409bf8fe9ae674137ddcc016227128766a327692e667bb1db44b0a2/node_modules/chrome-devtools-mcp/build/src/bin/chrome-devtools-mcp.js",
       "--isolated",
       "--no-usage-statistics",
       "--no-performance-crux"
@@ -54,8 +54,8 @@
     }
   },
   "limitations": [
-    "Non-LLM fixture configuration disables plugins, remote_plugin and skill_mcp_dependency_install; normal configuration and hooks not executed.",
+    "Non-LLM fixture disables plugins, remote_plugin and skill_mcp_dependency_install; normal configuration and hooks require separate live acceptance.",
     "MCP and hooks are outside shell sandbox.",
-    "Original real LLM acceptance remains FAIL."
+    "Historical failed live attempts remain failures; this qualification does not itself certify live acceptance."
   ]
 }

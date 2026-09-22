@@ -2,7 +2,7 @@
 
 入口：[/home/tn/projects/aidev/README.md](README.md) ／ 操作手順：[/home/tn/projects/aidev/USER_GUIDE.md](USER_GUIDE.md)
 
-この文書は同じcheckoutの [/home/tn/projects/aidev/aidev.py](aidev.py)、[/home/tn/projects/aidev/provider_probe.py](provider_probe.py)、[/home/tn/projects/aidev/provider_build.py](provider_build.py)、[/home/tn/projects/aidev/install.py](https://github.com/tsutomu-n/aidev/blob/feat/terrain-integration/install.py) を基準とします。mainと0.3.0 featureの内容は異なります。検証したHEADと受入範囲は [/home/tn/projects/aidev/STATUS.md](STATUS.md) に記録します。installerへのリンクは配布対象外のsourceへの参照です。
+この文書は同じcheckoutの [/home/tn/projects/aidev/aidev.py](aidev.py)、[/home/tn/projects/aidev/provider_probe.py](provider_probe.py)、[/home/tn/projects/aidev/provider_build.py](provider_build.py)、[/home/tn/projects/aidev/install.py](https://github.com/tsutomu-n/aidev/blob/feat/terrain-integration/install.py) を基準とします。今回の作業元はmainで、通常導入用の差分は未commitです。検証したHEADと受入範囲は [/home/tn/projects/aidev/STATUS.md](STATUS.md) に記録します。installerへのリンクは配布対象外のsourceへの参照です。
 
 ## 責務と依存
 
@@ -83,7 +83,7 @@ Serena等の終了0でも部分失敗の出力を検出します。CRG wrapper�
 
 現行installerは13ファイル（既存9ファイルとTerrain用2 modules・patch・操作文書）のhashからrelease識別子を作り、`$HOME/.local/share/aidev/releases` に配置します。このdirectoryは初回導入または旧版からの更新時に作成されます。`installation.json` に収録ファイルhashを記録し、完全なreleaseへUbuntuは入口symlink、WindowsはUTF-8のcmdランチャーをatomicに切り替えます。Windowsの保存先設定値は `%LOCALAPPDATA%\aidev` です。補助symlinkの更新を含む全操作が一括transactionという意味ではありません。
 
-`--upgrade` は旧0.1.0の既知hash、または管理releaseのmanifestと実体が一致する場合に進みます。release manifestには実行Pythonの絶対パス・検証済み版・launcher形式も含み、Windows launcherはそのPythonをUTF-8 cmdから直接起動します。`py` / PATHへの実行時fallbackはありません。ロック取得後と公開直前にentryの種類・内容・link先を再照合し、初回は存在しない宛先への作成だけを許可します。更新は旧entryを専用退避先へrenameしてから、空の宛先へ公開します。競合時は上書きせず停止します。
+`--upgrade` は旧0.1.0の既知hash、または管理releaseのmanifestと実体が一致する場合に進みます。release manifestには実行Pythonの絶対パス・検証済み版・launcher形式も含み、Windows launcherはそのPythonをUTF-8 cmdから直接起動します。`py` / PATHへの実行時fallbackはありません。ロック取得後と公開直前にentryの種類・内容・link先を再照合し、初回は存在しない宛先への作成だけを許可します。更新は旧entryを専用退避先へrenameしてから、空の宛先へ公開します。競合時は上書きせず停止します。Unixの旧3ファイル配置は、退避releaseのmanifestが既知3hashと一致し、元ファイルも同じhashの通常ファイルである場合だけ管理リンクへ移行します。入口公開前に管理pathを検査し、元ファイルをrenameして保全した後もhashを照合します。途中中断後は同じ所有確認で残りの管理リンクを公開します。
 
 `installation-progress.json` はインストーラー自身が作った未完了処理だけを記録します。source検証・コピー・entry公開の失敗後、記録と完成releaseを照合できる同一source/同一Pythonの再実行は通常installで再開できます。所有記録のない旧partial、変更済みrelease、利用者entryは自動復旧しません。旧release、entry backup、失敗したstaging以外の利用者データを削除するrollback/uninstallはありません。
 

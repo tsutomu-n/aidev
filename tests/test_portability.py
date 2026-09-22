@@ -207,6 +207,76 @@ class InstallerTests(unittest.TestCase):
             install.install(upgrade=True)
         self.assertEqual(self.entry.read_text(), 'user command')
 
+    def legacy_fixture(self):
+        self.target.mkdir()
+        self.entry.parent.mkdir()
+        for name in install.LEGACY_HASHES:
+            shutil.copy2(self.source / name, self.target / name)
+        expected = install.hashes(self.target, install.LEGACY_HASHES)
+        self.stack.enter_context(patch.object(install, 'LEGACY_HASHES', expected))
+        self.entry.symlink_to(self.target / 'aidev.py')
+        return expected
+
+    @unittest.skipIf(platform.WINDOWS, 'legacy layout is Unix-only')
+    def test_legacy_upgrade_retains_files_and_links(self):
+        expected = self.legacy_fixture()
+        release = install.install(upgrade=True)
+        self.assertEqual(self.entry.resolve(), release / 'aidev.py')
+        for name in install.FILES:
+            self.assertEqual((self.target / name).resolve(), release / name)
+        saved = [p for p in (self.target / 'releases').iterdir() if p != release]
+        self.assertEqual(len(saved), 1)
+        self.assertEqual(install.hashes(saved[0], expected), expected)
+        self.assertEqual(len(list(self.target.glob('.aidev-link-backup-*'))), 3)
+
+    @unittest.skipIf(platform.WINDOWS, 'legacy layout is Unix-only')
+    def test_legacy_changed_file_or_helper_conflict_preserved(self):
+        self.legacy_fixture()
+        original = (self.target / 'README.md').read_bytes()
+        (self.target / 'README.md').write_text('user changed')
+        with self.assertRaisesRegex(ValueError, '変更'):
+            install.install(upgrade=True)
+        self.assertEqual((self.target / 'README.md').read_text(), 'user changed')
+        (self.target / 'README.md').write_bytes(original)
+        (self.target / 'terrain_runtime.py').write_text('foreign helper')
+        before = install.entry_record()
+        with self.assertRaisesRegex(ValueError, '管理path'):
+            install.install(upgrade=True)
+        self.assertEqual(install.entry_record(), before)
+        self.assertEqual((self.target / 'terrain_runtime.py').read_text(), 'foreign helper')
+
+    @unittest.skipIf(platform.WINDOWS, 'legacy layout is Unix-only')
+    def test_legacy_interrupted_helper_publication_resumes(self):
+        self.legacy_fixture()
+        original = Path.symlink_to
+        def fail(path, target, *args, **kwargs):
+            if path == self.target / 'provider_probe.py':
+                raise OSError('fixture publication failure')
+            return original(path, target, *args, **kwargs)
+        with patch.object(Path, 'symlink_to', fail), self.assertRaises(OSError):
+            install.install(upgrade=True)
+        self.assertEqual(install.read_journal()['phase'], 'entry-published')
+        release = install.install()
+        self.assertEqual(install.active_release(), release)
+        self.assertIsNone(install.read_journal())
+        for name in install.FILES:
+            self.assertEqual((self.target / name).resolve(), release / name)
+
+    @unittest.skipIf(platform.WINDOWS, 'legacy layout is Unix-only')
+    def test_legacy_concurrent_change_after_entry_is_preserved(self):
+        self.legacy_fixture()
+        original = install.write_journal
+        def race(record):
+            original(record)
+            if record['phase'] == 'entry-published':
+                (self.target / 'README.md').write_text('concurrent edit')
+        with patch.object(install, 'write_journal', race), self.assertRaisesRegex(ValueError, '管理path'):
+            install.install(upgrade=True)
+        with self.assertRaisesRegex(ValueError, '管理path'):
+            install.install()
+        self.assertEqual((self.target / 'README.md').read_text(), 'concurrent edit')
+        self.assertEqual(install.read_journal()['phase'], 'entry-published')
+
     def test_windows_layout_without_symlinks(self):
         entry = self.target / 'bin/aidev.cmd'
         with patch.object(install, 'WINDOWS', True), patch.object(install, 'ENTRY', entry):

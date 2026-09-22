@@ -23,7 +23,7 @@ TERRAIN_RUST_MIN = "1.94"
 CODEX_ACP_VERSION = "1.11.0"
 CONTEXT_MODE = "aidev-context-read-only"
 # Set only after all non-LLM gates pass for the exact artifact; version is insufficient.
-CONTEXT_QUALIFICATION_SHA256 = '1ed5223b5e6477cf12ea7a07386dd9abea673b38e79b9a7341aac6ea412a78d7'
+CONTEXT_QUALIFICATION_SHA256 = 'd2fc0a6d669f1183da3dd408ae6431e1e70c12f040784abad38293e16b427a8a'
 CONTEXT_QUALIFICATION = Path(__file__).with_name("context-qualification.json")
 
 
