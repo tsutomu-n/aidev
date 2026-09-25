@@ -1,182 +1,78 @@
-# aidev ジュニアSE向け操作マニュアル
+# aidev 操作ガイド
 
-入口へ戻る：[/home/tn/projects/aidev/README.md](../README.md)
+このガイドは、初めてaidevを使うジュニアSE向けです。Ubuntuのターミナルで、解析したいGitリポジトリの準備からCodexでの確認まで進めます。Windowsで導入する場合は [Windows向け手順](WINDOWS.md) を先に読んでください。
 
-ターミナルでコマンドを実行できる方が、導入から解析準備、日常の更新、障害の切り分けまで進めるための手順です。ソース0.3.0を基準にしています。
-
-Windows 11の導入・登録は、[/home/tn/projects/aidev/docs/WINDOWS.md](WINDOWS.md) の手順を先に進めてください。以下のshell例はUbuntu向けです。
-
-## 目次
-
-1. [役割と用語](#basics)
-2. [導入・更新](#install)
-3. [対象リポジトリを初期化する](#first-run)
-4. [Codexで使えるか確認する](#codex-check)
-5. [日常の操作](#daily)
-6. [表示と終了コード](#results)
-7. [トラブル対応](#troubleshooting)
-8. [バックアップと取り消し](#recovery)
-9. [先輩・管理者への相談](#support)
+すでに `aidev --version` が使えるなら、[「対象リポジトリで使う」](#first-run) から始めてください。導入担当者は [「aidevを導入・更新する」](#install) を参照してください。
 
 <a id="basics"></a>
-## 1. 役割と用語
+## aidevで何をする？
 
-アプリのソースコードを解析し、関数の定義・参照・変更の影響を調べるための準備を行います。アプリの雛形を作る機能ではありません。
+aidevは、Serena・Graphify・CRGという3つの解析ツールを、対象リポジトリで使うための設定と検索用データを準備します。関数の定義や参照、コードの関係を調べる助けになります。**aidev本体のソースがある場所と、解析するリポジトリは別です。**
 
-| 用語 | 意味 |
+| 言葉 | このガイドでの意味 |
 |---|---|
-| リポジトリ（repo） | Gitで管理しているプロジェクト |
-| ルート | そのリポジトリの一番上のフォルダー。`git rev-parse --show-toplevel` で確認できる |
-| CLI | ターミナルからコマンドで操作するツール |
-| 索引（index） | コードを検索するために作る解析データ。コードが変わると更新が必要 |
-| provider | 解析を担当するツール。aidevでは下記3つを使う |
-| Serena | 関数・クラスなどの定義や参照を調べる |
-| Graphify | コードの構成や関係を抽出する |
-| CRG | code-review-graphの略。コードの関係から変更影響の調査を助ける |
-| MCP | Codexなどが外部ツールを呼び出すための接続方式 |
-| 共通基盤 | 承認台帳と、あらかじめ導入された解析ツールの組合せ |
+| リポジトリ | Gitで管理しているプロジェクト |
+| ルート | リポジトリの一番上のフォルダー |
+| 索引 | コードを検索するために解析ツールが作るデータ |
+| provider | Serena・Graphify・CRGのような、実際に解析するツール |
 
-**aidev本体の配置先と、解析するプロジェクトは別です。** この環境では、本体のソースは `/home/tn/projects/aidev` にあります。`aidev init` は解析したいプロジェクトで実行します。
+たとえば、この環境ではaidevのソースは `/home/tn/projects/aidev` にあります。別のプロジェクトを調べるとき、`aidev init` や `aidev doctor` は**そのプロジェクトのGitルート**で実行します。図の「対象リポジトリ」は、調べたいプロジェクトを指します。
 
-以下のコマンドはUbuntuのターミナルで、1ブロックずつ結果を見て実行してください。コード内の `/absolute/path/to/your-repo` は説明用の未作成パスです。実際の対象リポジトリの絶対パスへ置き換えます。他の利用者のHOMEや配置先が異なる場合も実環境に合わせてください。
-
-<a id="install"></a>
-## 2. 導入・更新
-
-### 2.1 前提を確認する
-
-管理者が共通基盤を導入・承認済みであることが前提です。未導入ならここで管理者に準備を依頼してください。既存共通基盤を使わない場合は、[/home/tn/projects/aidev/docs/WINDOWS.md](WINDOWS.md) の `setup` 登録を使えます。Ubuntuの専用venvでは各 `bin/python` の絶対パスを指定します。
-
-次のコマンドで環境を読み取って確認します。どのフォルダーでも実行できます。
-
-```sh
-python3 --version
-git --version
-command -v serena graphify code-review-graph
-serena --version
-graphify --version
-code-review-graph --version
-python3 /home/tn/.local/share/dev-capabilities/core/catalog.py list
+```mermaid
+flowchart TD
+    A["対象リポジトリのGitルートへ移動"] --> B["変更予定を見る<br/>aidev init --dry-run"]
+    B --> C{"対象と変更予定は正しい？"}
+    C -- いいえ --> X["実行を止めて担当者に確認"]
+    C -- はい --> D["準備する<br/>aidev init"]
+    D --> E["状態を確認<br/>aidev doctor"]
+    E --> F{"LOCAL_READY？"}
+    F -- いいえ --> G["表示された理由を確認"]
+    F -- はい --> H["新しいCodexセッションで<br/>実際に照会する"]
 ```
-
-| 確認対象 | 次へ進める条件 |
-|---|---|
-| Python | 3.11以降 |
-| Git | バージョンが表示される |
-| Serena / Graphify / CRG | それぞれ1.7.0 / 0.9.55 / 2.3.8がPATHから実行できる |
-| 共通台帳 | `approved_modules` に `serena`・`graphify`・`crg` がある |
-| provider実行環境 | 管理者が各providerを既存uv tool環境に導入済み |
-
-バージョンが新しければ使える、とは限りません。aidevは指定版と実体を初期化時に再検査し、不一致なら停止します。エラーを回避するためだけに台帳を編集しないでください。
-
-### 2.2 aidevを初めて入れる
-
-この環境では `/home/tn/projects/aidev` に取得済みです。未取得の環境で、その配置先が存在しない場合に限り次を使います。
-
-```sh
-git clone --branch main --single-branch https://github.com/tsutomu-n/aidev.git /home/tn/projects/aidev
-```
-
-今回の作業元はmainの `e1173234ffbfa51d2b2fa8cfa5100550ff127ca7` に通常導入用の未commit差分を加えたものです。この端末の通常環境では0.3.0の実LLM受入まで完了しました。今回の差分は公開していないため、上記cloneだけで通常導入済み配布物と同一にはなりません。取得後のHEAD・差分・STATUSを照合し、別端末では独立に検証してください。
-
-本体のソースからインストールします。配置先の親フォルダーが未作成なら `mkdir -p` で用意します。
-
-```sh
-cd /home/tn/projects/aidev
-mkdir -p /home/tn/.local/bin /home/tn/.local/share
-python3 /home/tn/projects/aidev/src/install.py
-/home/tn/.local/bin/aidev --version
-```
-
-期待結果はインストール完了と `aidev 0.3.0` です。入口は `/home/tn/.local/bin/aidev`、管理先は `/home/tn/.local/share/aidev` です。既存コマンドがあると表示された場合は、そのコマンドを削除せず、次の更新手順を確認します。
-
-続いて短い名前で実行できるか確認します。
-
-```sh
-aidev --version
-```
-
-見つからない場合は当面 `/home/tn/.local/bin/aidev` を使えます。以下の `aidev` もこの絶対パスに置き換えてください。恒久的なPATH設定は普段の環境管理手順に従います。
-
-### 2.3 既存aidevを更新する
-
-取得済みソースとインストール済みコマンドは別物です。まずソースの状態・版を確認し、必要なソース更新はチームのGit運用に従います。
-
-```sh
-git -C /home/tn/projects/aidev status --short --branch
-python3 -B /home/tn/projects/aidev/src/aidev.py --version
-/home/tn/.local/bin/aidev --version
-```
-
-導入したいソースが揃ったら実行します。
-
-```sh
-python3 /home/tn/projects/aidev/src/install.py --upgrade
-/home/tn/.local/bin/aidev --version
-```
-
-管理対象の旧版だけを更新し、旧releaseは保持します。管理外のコマンドやインストール済みファイルの利用者変更があれば停止します。Gitでソースを更新しただけではインストール版は変わりません。
-
-Windows launcherは導入を実行した確認済みPythonの絶対パスを固定し、消失時に別Pythonへfallbackしません。導入/upgrade中の競合、利用者変更、所有記録のない旧partialは上書きせず停止します。installer所有の中断だけは同じsource・同じPythonで通常installを再実行して復旧できます。Windows実機での旧版upgrade受入は未実施です。Ubuntuの旧3ファイル配置からの通常更新と復旧fixtureは今回成功しました。検証範囲は [/home/tn/projects/aidev/docs/STATUS.md](STATUS.md) を確認してください。
 
 <a id="first-run"></a>
-## 3. 対象リポジトリを初期化する
+## 対象リポジトリで使う
 
-### 3.1 作業場所と対象を確認する
+以下の `/absolute/path/to/your-repo` は説明用です。実際に解析したいリポジトリの絶対パスに置き換えてください。コマンドは1ブロックずつ実行し、結果を確認してから次へ進みます。
+
+### 1. 場所を確かめる
 
 ```sh
 cd /absolute/path/to/your-repo
 pwd
 git rev-parse --show-toplevel
 git status --short
+aidev --version
 ```
 
-`pwd` とGit rootが同じ対象を示していれば進めます。Gitリポジトリでない場合は、正しいcloneへ移動します。新規プロジェクトなら、目的のフォルダーか確認してから利用者が `git init` で用意します。
+`pwd` と `git rev-parse --show-toplevel` が同じ対象を示しているか確認します。`aidev --version` が見つからなければ [導入手順](#install) を確認してください。未commitの変更があっても、勝手に破棄する必要はありません。誰の変更か把握し、初期化中のコード編集や別の解析処理を止めます。
 
-未commitの変更がある場合は自分・他の人の作業を把握し、初期化中のコード編集や別の解析処理を止めます。既存変更の破棄は不要です。秘密情報・顧客データ・生成物について、対象repoのGit除外と解析ignoreも確認します。aidevは任意の機密データを自動識別する検査ではありません。
+秘密情報・顧客データ・生成物がある場合は、対象リポジトリのGit除外と解析対象の設定を確認してください。aidevは機密データを自動で見分けません。
 
-### 3.2 変更予定を見る
+### 2. 変更予定を見る
 
 ```sh
 aidev init --dry-run
 ```
 
-成功するとJSONで `status: PLAN`、`writes: false` が表示されます。
+`PLAN` と `writes: false` が表示されれば、まだ設定や索引を書き換えていません。表示された `root` が対象リポジトリか、`files_to_change` に意図しない設定ファイルがないかを確認します。`source_files` が想定外に0なら、コードの有無や除外設定を調べます。判断できない変更があれば、ここで止めて担当者に確認します。
 
-| 項目 | 確認すること |
-|---|---|
-| `root` | 初期化したいリポジトリの絶対パスか |
-| `files_to_change` | 変更予定の設定ファイル。意図しない設定変更がないか |
-| `source_files` | 解析対象数。想定外に0ならコード・言語・除外を確認 |
-| `languages` | 検出した対応言語が想定と一致するか |
-
-この段階では設定を書き換えず、索引構築もしません。`files_to_change` は全索引・ログの生成予定一覧ではありません。0件でも索引の更新が必要な場合があります。
-
-### 3.3 実行して結果を確認する
+### 3. 準備して診断する
 
 ```sh
 aidev init
-```
-
-設定変更、変更前のテキストのバックアップ、Serena → Graphify → CRGの解析を行います。設定が同じでコードと索引の鮮度も一致していれば、既存索引を再利用します。
-
-既定の時間上限は**各providerの処理ごとに600秒**です。大きいrepoで不足するときは、原因を確認してから延長できます。総所要時間の上限ではありません。
-
-```sh
-aidev init --timeout 1800
-```
-
-`LOCAL_READY` が出たら診断します。
-
-```sh
 aidev doctor
 ```
 
-再び `LOCAL_READY` ならローカル準備は完了です。`WAITING_FOR_CODE` は対象コード追加待ちなので、コードを用意してから再実行します。別の表示なら [結果一覧](#results) を確認してください。
+`init` は設定を保存し、Serena → Graphify → CRGの順に解析します。既存の設定を変更する場合は、変更前のテキストをバックアップします。`doctor` は設定と索引の状態を**書き換えずに**確認します。
 
-初回Serena解析では言語サーバーの取得が発生する場合があります。完全オフライン動作は保証していません。従来3providerの索引構築は外部LLM抽出・embeddingを行いません。Codex利用時の通信は別です。
+`doctor` が `LOCAL_READY` と表示すれば、ローカルの準備は完了です。`init` の結果が `WAITING_FOR_CODE` なら、対応するコードの追加を待っています。それ以外の表示は [「表示の読み方」](#results) を見てください。`LOCAL_READY` だけではCodexからの接続成功までは確認できません。
 
-### 3.4 変更内容を確認する
+解析の時間上限は各providerの処理ごとに既定で600秒です。全体の所要時間の上限ではありません。時間が足りない場合は、ログを確認してから [時間切れの対応](#troubleshooting) に進みます。
+
+初回のSerena解析では言語サーバーの取得が発生する場合があります。完全なオフライン動作は保証していません。通常の3providerによる索引構築では外部LLMによる抽出やembeddingを行いません。Codex利用時の通信は別です。
+
+### 4. 何が変わったか確認する
 
 ```sh
 git status --short
@@ -184,137 +80,98 @@ git diff --stat
 git diff
 ```
 
-`git diff` に新規の未追跡ファイルの内容は出ません。`git status --short` の `??` も確認し、該当ファイルをエディターで読みます。
-
-追加するMCP設定、解析設定、Git除外などの詳細は [/home/tn/projects/aidev/docs/TECHNICAL.md](TECHNICAL.md) にあります。索引・ログ・バックアップはローカル管理です。aidevはcommit・pushをしません。設定をGitへ含めるかはチームで判断し、一括stageで元の作業を巻き込まないようにします。
+`git status --short` の `??` は新しい未追跡ファイルです。その内容は `git diff` に出ないため、必要ならエディターで開いて確認します。aidevはcommit・pushをしません。自分や他の人の変更を一括でstageしないでください。
 
 <a id="codex-check"></a>
-## 4. Codexで使えるか確認する
+## Codexから本当に使えるか確認する
 
-導入済み・利用可能なCodex CLIを使います。対象repoルートのターミナルで次を実行し、新規セッションを開きます。
+対象リポジトリのGitルートで新しいCodexセッションを開き、表示された信頼確認に従います。
 
 ```sh
 codex
 ```
 
-表示される標準の信頼確認に従います。その後、**Codexの入力欄**で `/mcp` を入力します。これはターミナルのコマンドではありません。セッション内で利用できるMCPサーバーとツールを確認する操作です。[OpenAI公式のコマンド説明](https://learn.chatgpt.com/docs/developer-commands?surface=cli)も参照できます。
+Codexの**入力欄**で `/mcp` を入力し、SerenaとCRGが使えるか確認します。これはターミナルのコマンドではありません。Graphifyは索引作成に使うため、MCP一覧に出なくても異常ではありません。操作方法は [Codex公式の説明](https://learn.chatgpt.com/docs/developer-commands?surface=cli) でも確認できます。
 
-aidevが設定するMCPはSerenaとCRGです。GraphifyはCLIで索引を作るため、GraphifyがMCP一覧にないこと自体は異常ではありません。
-
-実在する関数を1つ選び、次のように依頼します。「対象の関数名」は置き換えてください。
+次に、実在する関数名を一つ選んで依頼します。
 
 ```text
-ソースを変更せずに、Serenaで「対象の関数名」の定義と参照元を調べてください。
-根拠となるファイルの絶対パスを示し、実際にツールを呼べたかも説明してください。
+ソースを変更せず、Serenaで「対象の関数名」の定義と参照元を調べてください。
+実際にツールを呼べたか、根拠となるファイルの絶対パスとともに説明してください。
 ```
 
 ```text
-ソースを変更せずに、CRGでその関数を変更した場合の影響候補を調べてください。
-実際のコードと照合し、未確認の範囲を分けてください。
+ソースを変更せず、CRGでその関数を変更した場合の影響候補を調べてください。
+実際のコードと照合し、未確認の範囲も示してください。
 ```
 
-返された定義・呼出元をエディターで開いて確認します。単なる文字列検索だけで答えた場合は、MCPによる実照会を確認できていません。
-
-完了の目安は「doctorが成功」「Serena・CRGの実照会が成功」「回答の根拠がsourceと一致」の3点です。`codex_mcp: UNVERIFIED` はaidevが接続を検査していないという表示なので、実照会後も自動で検証済みに変わりません。アプリのテストや解析の網羅性の保証も別です。
+返ってきたファイルをエディターで開き、説明と一致するか確認します。文字列検索だけの回答なら、MCPツールを使えた証拠にはなりません。`codex_mcp: UNVERIFIED` はaidev自身が接続を検査していないという意味で、実照会後も表示は自動で変わりません。
 
 <a id="daily"></a>
-## 5. 日常の操作
+## 普段の使い方
 
-| タイミング | 操作 |
-|---|---|
-| 作業開始・コード編集後・branch切替後 | 対象repoで `aidev doctor` |
-| コード・設定・索引の変化が理由の `NEEDS_INIT` | 原因を確認し `aidev init` → `aidev doctor` |
-| 新しいclone・worktree | その作業先で初回手順を行う。既存の解析stateをコピーしない |
-| コードのないrepo | 対応コードを追加後に `aidev init` |
-| aidev本体を更新 | [本体の更新手順](#install)。対象コードの索引更新とは別 |
+作業開始時やコード編集・ブランチ切替の後は、対象リポジトリで `aidev doctor` を実行します。`NEEDS_INIT` が出たら理由を読み、コードや設定が変わったために更新が必要なら `aidev init`、続けて `aidev doctor` を実行します。新しいcloneやworktreeでは、その作業先で初回手順から始めます。
 
-変更を監視するwatcherやGit hookは追加しません。個別providerだけを選ぶoptionもありません。索引更新が必要な場合は3providerを順番に処理します。
+aidevは変更を自動監視しません。索引の更新が必要なときは、3providerを順に処理します。
 
 <a id="results"></a>
-## 6. 表示と終了コード
+## 表示の読み方
 
-| 表示 | 意味 | 次の行動 |
-|---|---|---|
-| `PLAN` | dry-run成功 | 予定を確認してinit |
-| `LOCAL_READY` | ローカル設定・索引の照合成功 | Codexで接続と実照会を確認 |
-| `WAITING_FOR_CODE` | 空repoの設定完了、コード待ち | 対応コード追加後にinit |
-| `NEEDS_INIT` | 設定・コード・索引に不足や変化 | 表示された理由を確認 |
-| `INITIALIZING` | 保存state上の解析途中 | 処理中なら待つ。中断後ならログを確認 |
-| `FAILED` | 保存stateに記録された初期化失敗 | エラーとproviderログを確認 |
-| `ERROR` | doctorのJSONエラー応答 | `error` を確認 |
-| `codex_mcp: UNVERIFIED` | Codex接続はaidevの検査対象外 | セッションで実照会 |
+| 表示 | 意味と次の行動 |
+|---|---|
+| `PLAN` | 変更予定。対象と変更内容を確認する |
+| `LOCAL_READY` | ローカルの設定と索引は準備済み。Codexで実照会する |
+| `WAITING_FOR_CODE` | 対応するコードを追加してから `aidev init` を再実行する |
+| `NEEDS_INIT` | 表示された理由を確認し、必要なら `aidev init` を実行する |
+| `INITIALIZING` | 解析途中の記録。処理中か、中断したかをログで確認する |
+| `FAILED` / `ERROR` | エラー本文と、表示されたログの場所を確認する |
+| `codex_mcp: UNVERIFIED` | Codex接続は未検査。新しいセッションで実照会する |
 
-機械処理向けには次を使います。直後の `echo $?` が直前のコマンドの終了コードを表示します。
-
-```sh
-aidev doctor --json
-echo $?
-```
-
-終了0は成功（dry-run・コード待ちのinitも含む）、終了1はdoctorの要初期化、終了2はエラーです。空repoのdoctorは `NEEDS_INIT`・終了1になり得ます。空repoの設定失敗とは限りません。
-
-`init --json` はありません。通常のinitエラーは標準エラーに表示され、すべてがstateの `FAILED` に記録されるわけではありません。最新の終了コードとエラー本文を優先してください。
+`aidev doctor --json` は機械処理向けの結果を表示します。終了コードは、0が成功、1がdoctorの要初期化、2がエラーです。コードのないリポジトリで `init` が `WAITING_FOR_CODE` を返しても終了0になり得ます。`init --json` はありません。
 
 <a id="troubleshooting"></a>
-## 7. トラブル対応
+## 困ったとき
 
-エラー後は同じコマンドを連打せず、理由と表示されたログの絶対パスを確認します。
+同じコマンドを繰り返す前に、エラー本文と表示されたログの絶対パスを確認します。providerのログは再実行で上書きされるため、必要な失敗記録は先に手元へ保全してください。秘密情報を含む可能性があるログを、内容確認前に外部へ貼らないでください。
 
-| 症状 | 確認・対応 |
+| 症状 | 最初にすること |
 |---|---|
-| `aidev: command not found` | `/home/tn/.local/bin/aidev --version` を試す。未導入なら導入手順へ |
-| repoルートで実行するよう表示 | 表示された絶対パスに移動し、`pwd` とGit rootを再確認 |
-| 共通基盤なし・承認や整合性のエラー | 管理者へ前提確認を依頼。台帳の強制編集はしない |
-| providerの版不一致・uv環境なし | 指定版と導入方法を管理者に確認。最新化だけで解決しようとしない |
-| MCP・能力選択・Serena設定の衝突 | 既存設定の意図を確認。3provider一括設定が合わなければ管理者の個別導入手順を使う |
-| 環境overrideのエラー | 表示された変数の設定理由を確認。必要な既存設定を無条件で解除しない |
-| 未対応言語・対象0件 | Python/JavaScript/TypeScriptの存在と除外を確認。混在repoの全言語解析は保証しない |
-| timeout・途中失敗 | ログで原因を確認し、修正後に同じinit。時間不足なら `--timeout 1800` |
-| 処理中のコード変更 | 編集・別解析が止まっていることを確認して再実行 |
-| CRGの非空WALエラー | 利用中サーバーを通常手順で終了して再確認。DBやWALを手動削除しない |
-| 追跡済み生成物・symlink/hardlinkのエラー | 管理方法と参照先を確認し相談。追跡解除やリンク削除で強行しない |
-| doctor成功だがMCPが使えない | 対象repoの新規セッションか確認。MCPのエラーと実照会を切り分ける |
-| installerが利用者変更・管理外と表示 | 現在の配置を保全して相談。上書き・削除しない |
-
-ログはproviderごとに再実行時に上書きされます。必要な失敗記録は再実行前に確認し、手元に保全してください。ログは内容確認前に外部へ貼らないでください。
+| `aidev: command not found` | `/home/tn/.local/bin/aidev --version` を試す。なければ導入担当者に相談 |
+| 「リポジトリのルートで実行」と表示 | `pwd` と `git rev-parse --show-toplevel` を見比べる |
+| 共通基盤・承認・providerの版で停止 | 担当者に環境を確認してもらう。台帳を手編集して通さない |
+| `source_files` が想定外に0 | Python・JavaScript・TypeScriptのコードと除外設定を確認する |
+| 時間切れ | ログで原因を確認する。時間不足なら担当者と `aidev init --timeout 1800` を検討する |
+| `LOCAL_READY` だがCodexで使えない | 対象リポジトリで新しいセッションを開いたか確認し、実際のツール呼出しを調べる |
+| 設定の衝突、利用者変更、管理外ファイル、リンクのエラー | 対象を保全して担当者に相談する。削除や上書きで通さない |
 
 <a id="recovery"></a>
-## 8. バックアップと取り消し
+## 戻したいとき
 
-初期化結果の `backup:` は、変更前の既存テキストと変更一覧の保存先です。索引・ソース全体のバックアップではありません。失敗で結果が表示されなかった場合は、技術仕様に示すrepo内のバックアップ保存先を確認します。
+`init` が示す `backup:` は、変更前のテキストと変更一覧の保存先です。ソース全体や索引のバックアップではありません。**自動で元に戻すコマンドやuninstallコマンドはありません。**
 
-**自動rollback・uninstallコマンドはありません。** 取り消しが必要なら次の順で担当者と確認します。
-
-1. 初期化と関連する解析処理を止め、現在の設定と利用者変更を保全する。
-2. バックアップの変更一覧・変更前テキスト・現在のファイルを比較する。
-3. 一覧の `existed` で元からあったファイルか、新規作成かを判別する。
-4. 初期化後の利用者変更を残し、戻す必要のある設定だけを個別に復元する。
-5. `git status --short` とdiffを確認する。aidevを使い続けるならdoctorで再診断する。
-
-複数ファイルを一括して扱うtransactionではありません。途中で失敗すると、一部の変更だけが適用された状態で残る場合があります。再実行は厳密な途中再開ではなく、状態を再確認して必要な一連の処理をやり直します。索引・ログの一括削除やGitの追跡解除を復旧に混ぜないでください。
+担当者と一緒に、現在の設定と利用者変更を保全し、バックアップの変更一覧・元のテキスト・現在のファイルを比較してください。元からあったファイルかは一覧の `existed` で判別します。戻す必要がある設定だけを個別に復元し、最後に `git status --short` と `aidev doctor` で確認します。途中失敗では一部だけ変更された状態が残る場合があります。索引やログの一括削除、Gitの追跡解除を復旧に混ぜないでください。
 
 <a id="support"></a>
-## 9. 先輩・管理者への相談
+## 担当者に相談するとき
 
-次を整理すると切り分けが早くなります。共有先に渡せる内容だけを記載してください。
+対象リポジトリの絶対パス、`aidev --version`、実行したコマンド、表示された状態・終了コード・エラー、直前の変更を伝えてください。ログは秘密情報を除いた必要箇所だけ共有します。Codexについては「実照会は未実施／成功／失敗」を分けて伝えます。
 
-```text
-目的：導入 / 初期化 / 索引更新 / 接続確認 / 復旧
-対象repoの絶対パス：
-aidevのバージョン：
-実行したコマンド：
-表示されたstatus・終了コード・エラー：
-直前の変更：branch切替、コード編集、ツール更新など
-ログの絶対パスと、秘密を除いた必要箇所：
-Codexの実照会：未実施 / 成功 / 失敗（内容）
+<a id="install"></a>
+## aidevを導入・更新する（導入担当者向け）
+
+Python 3.11以降とGitが必要です。Serena 1.7.0、Graphify 0.9.55、CRG 2.3.8の実体と承認登録も必要です。aidevはこれらのツールを自動導入しません。準備方法と登録条件は [技術資料](TECHNICAL.md) と [Windows向け手順](WINDOWS.md) を確認してください。既存の共通基盤や承認台帳を変更するときは、担当者の運用手順に従います。
+
+この環境ではソースを `/home/tn/projects/aidev` に置いています。別の環境では実際のcheckoutに読み替え、導入するソースの版とGit状態を先に確認してください。ソースとインストール済みコマンドは別です。
+
+```sh
+python3 --version
+git -C /home/tn/projects/aidev status --short --branch
+python3 -B /home/tn/projects/aidev/src/aidev.py --version
+mkdir -p /home/tn/.local/bin /home/tn/.local/share
+python3 /home/tn/projects/aidev/src/install.py
+/home/tn/.local/bin/aidev --version
 ```
 
-providerの内部契約や保存先は [/home/tn/projects/aidev/docs/TECHNICAL.md](TECHNICAL.md)、受入の未確認事項は [/home/tn/projects/aidev/docs/STATUS.md](STATUS.md) を参照してください。
+このソースの版表示は `aidev 0.3.0` です。既にaidevを導入済みで、確認したソースへ更新する場合は `python3 /home/tn/projects/aidev/src/install.py --upgrade` を使います。管理外のコマンドや利用者が変更したファイルにより停止した場合は、その配置を保全して原因を確認します。Gitでソースを更新しただけでは、通常利用するコマンドは更新されません。
 
-入口へ戻る：[/home/tn/projects/aidev/README.md](../README.md)
-
-## Terrainを任意導入する
-
-Terrainは3providerと独立したknowledge/navigation layerです。正式runtime検証対象はUbuntu 24.04 x86_64で、WindowsのTerrain操作は未サポートです。runtimeを明示登録・build後、対象repoで `aidev terrain init --dry-run` → `aidev terrain init` → `aidev terrain doctor` を実行します。コード変更後は `aidev terrain refresh`。Codex ACPによるLLM生成が必要な場合だけinit/refreshへ `--build-context` を付けます。
-
-read tools、tracked/ignored、既存assetsのmigration、runtime登録・rebuildは [/home/tn/projects/aidev/docs/TERRAIN.md](TERRAIN.md) にまとめています。
+詳しい設定と保存先は [技術資料](TECHNICAL.md)、Windowsの導入・受入は [Windows向け手順](WINDOWS.md)、任意機能のTerrainは [Terrainの説明](TERRAIN.md)、この環境で実施した受入の範囲は [状態と検証記録](STATUS.md) を参照してください。
