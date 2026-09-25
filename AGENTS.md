@@ -7,7 +7,7 @@
 
 ## 開始時
 
-- Windows対応・Windows引き継ぎを依頼された場合は、Git rootを確認し、その直下の `WINDOWS_HANDOFF.md` を先に読む。具体的な操作は今回の利用者依頼と実効権限に従う。
+- Windows対応・Windows引き継ぎを依頼された場合は、Git rootを確認し、`docs/WINDOWS_HANDOFF.md` を先に読む。具体的な操作は今回の利用者依頼と実効権限に従う。
 - このrepoはaidev本体。Ubuntu基盤一式のrepoではない。既存の共通台帳・provider・利用者repoを無断で移植・変更しない。
 - Git状態と既存差分を確認する。0.2.0という版や過去のgreenだけでWindows対応完了と判定しない。
 

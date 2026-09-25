@@ -22,7 +22,7 @@ aidev doctor
 | 場所 | 内容 |
 |---|---|
 | `src/` | CLI、インストーラー、provider連携、Terrain、配布用patch・qualification |
-| `docs/` | 操作手順、技術仕様、検証状態と受入記録 |
+| `docs/` | 操作手順、技術仕様、受入記録、Windows引き継ぎと受領manifest |
 | `tests/` | Python回帰テスト |
 | `tools/` | Windows引き継ぎ・Terrain CI等の補助コマンド |
 
@@ -32,4 +32,4 @@ aidev doctor
 
 既存の3providerはTerrainなしで利用できます。TerrainはUbuntu向けの任意の探索補助で、`aidev terrain`で明示的に準備します。Agent ContextのLLM生成は`--build-context`を指定した場合だけです。契約と手順は [/home/tn/projects/aidev/docs/TERRAIN.md](docs/TERRAIN.md) を確認してください。
 
-ソースの版は0.3.0です。Ubuntu通常環境の受入記録とWindows実機で未確認の範囲は [/home/tn/projects/aidev/docs/STATUS.md](docs/STATUS.md) に分けて記載しています。Windows引き継ぎの正本はソースcheckout直下の `WINDOWS_HANDOFF.md` で、実行用releaseには含めません。
+ソースの版は0.3.0です。Ubuntu通常環境の受入記録とWindows実機で未確認の範囲は [/home/tn/projects/aidev/docs/STATUS.md](docs/STATUS.md) に分けて記載しています。Windows引き継ぎの正本はソースcheckoutの `docs/WINDOWS_HANDOFF.md` で、実行用releaseには含めません。

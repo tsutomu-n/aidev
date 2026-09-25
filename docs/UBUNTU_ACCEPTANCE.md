@@ -4,7 +4,7 @@
 
 ## Gitと導入物の対応
 
-実装・回帰test・パッチ・qualification・運用文書はcommit `01c3bd5372a2566ff3e7fcd421d4de26af1efacb` に保存されています。導入前HEAD `e1173234ffbfa51d2b2fa8cfa5100550ff127ca7` だけでは完成状態を表しません。既存commitには別件の [/home/tn/projects/aidev/docs/FALLBACK_RESUME.md](FALLBACK_RESUME.md) も含まれます。この保存作業で追加したものではなく、既存履歴・内容を維持しています。
+実装・回帰test・パッチ・qualification・運用文書はcommit `01c3bd5372a2566ff3e7fcd421d4de26af1efacb` に保存されています。導入前HEAD `e1173234ffbfa51d2b2fa8cfa5100550ff127ca7` だけでは完成状態を表しません。
 
 | 識別対象 | 保存済み値 |
 |---|---|

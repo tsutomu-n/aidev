@@ -2,7 +2,7 @@
   "schema_version": 1,
   "hash_mode": "sha256-utf8-lf",
   "files": {
-    "AGENTS.md": "c6dd26591cb577cb77ba4c4f9503c8360a4c96264aad9af07bc812773270a25a",
+    "AGENTS.md": "44c0383241a8101b419c6dc614883eae693dbf5709ef2e455c843bf10e2283dc",
     ".gitignore": "75dca13ddeacaaa680ebeae7db60e5bb5f67866ddd5a0a349392ce77213cedf8",
     ".github/workflows/tests.yml": "11ff388559b7e775399f22011be543585daad2cc9049b88ad8cf4a9679c5f7e5",
     "src/aidev.py": "cc02bad6e198920ae683d463949c067e0c6ee981da71fc4ed3140d38a042da1e",
@@ -10,15 +10,15 @@
     "src/platform_support.py": "efd6e1dd80c332c39b09f4491c46f2104f9b5f14f5162e7dc65c07361b64728f",
     "src/provider_probe.py": "60e678c549258bc309322cdf2661cb375ef32dcc90c4859803190f0dff894256",
     "src/provider_build.py": "9a66675768ae52cc20a8735c615f33c108e2d5b61cb41b822701caa2f7b7134e",
-    "README.md": "72238f3f9f32481748e1798cee9eaa4e260b5d190de9aa09c024b29f9fbf78d3",
-    "docs/STATUS.md": "0979696d8fb155abe33e4450f16392d51c69986e8ae5d9566b780849515f0cc9",
+    "README.md": "4eed6a7e1de9ce3aa0eb4328a32098d5fb0772dc26850302a84461bb24127bcf",
+    "docs/STATUS.md": "19b07e2c1d3662c771647c064a7fb478ae0c02d2a8c849c9249923737158236d",
     "docs/TECHNICAL.md": "2507c4e554501c7c5f68e8fe55cf436832faf5ae1930041f595b85e27bca83ce",
     "docs/USER_GUIDE.md": "c16b1376a034ee5045eb7dad0881527fb632270e2dcdba708ea3e5d00eb4697b",
-    "docs/WINDOWS.md": "5a08c9e318193a1f8cbcf7ce2ad4c8edfa8d5584f0292bc816decb4dcfe6317c",
-    "WINDOWS_HANDOFF.md": "8d172ba232fb0eba3ca4a43fe8070be06d2236ea5c1baf0f2058304fda7109e3",
+    "docs/WINDOWS.md": "fba27ed3e81189f32f959d2bfc6341baa9f4c6781e0b89b5eda2f27e7d3316ba",
+    "docs/WINDOWS_HANDOFF.md": "ff247292db2729ed42c039ffab26d01ed7a40e7c07f65ec2d081af24b733bacb",
     "tests/test_aidev.py": "74c5c30d19e287968c1ac2a09537b4334bfd0dec5f377a7d3c5c0097e84af3d1",
     "tests/test_portability.py": "8be9cfa9cce9a224296dc82ddf1c3495b3cb57ad995530411b495d05df507a2f",
-    "tools/windows_handoff.py": "4bf7b8c267cea1d7825d4b45672b1340a329475ff6a3b2ae0a11bb07ca0a707f",
+    "tools/windows_handoff.py": "4c262865ca15dbcc53cc7b60e51e33f45ef3259195dd3b68684ecb02d687453e",
     "src/terrain_runtime.py": "a23646f59c4ed073dd145c44d5ab5123de3a269d8c341aa63d89389c60b5667d",
     "src/terrain_provider.py": "57770d434ef03e45c754c06265dae464207ee8c9aabc743f149f8a352940d358",
     "src/terrain-0.9.5-aidev.patch": "893efe60ec622ef6741e20d8a81c840124de60b823e842854c789ee9681f40c1",
@@ -30,6 +30,6 @@
     "tests/test_context_contract.py": "da0d114e82f897ae9c964c9ff1a09f7f51a52a1e10f119c730e0b205cb10095e",
     "tools/context_supervisor.py": "a631cbc66dec874ce95506882f9e45b9fd39799ed412b0e405b1c3c8d104b080",
     "src/codex-acp-1.11.0-context.patch": "5b65e1905dffda01b0be9a00d7527156ed987fd42ae32051958ef9165837e883",
-    "docs/UBUNTU_ACCEPTANCE.md": "783542f125fa8846e866f4effc4434d8d4871ce0e788aba7a9843944a0baa73f"
+    "docs/UBUNTU_ACCEPTANCE.md": "9e2f2cc7a457e20e12ca3ed78d0c10217338b95ac1206d78abd7bd34010bfd5a"
   }
 }

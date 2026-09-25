@@ -21,11 +21,11 @@ import tempfile
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-MANIFEST = ROOT / 'WINDOWS_HANDOFF_MANIFEST.json'
+MANIFEST = ROOT / 'docs/WINDOWS_HANDOFF_MANIFEST.json'
 FILES = (
     'AGENTS.md', '.gitignore', '.github/workflows/tests.yml',
     'src/aidev.py', 'src/install.py', 'src/platform_support.py', 'src/provider_probe.py', 'src/provider_build.py',
-    'README.md', 'docs/STATUS.md', 'docs/TECHNICAL.md', 'docs/USER_GUIDE.md', 'docs/WINDOWS.md', 'WINDOWS_HANDOFF.md',
+    'README.md', 'docs/STATUS.md', 'docs/TECHNICAL.md', 'docs/USER_GUIDE.md', 'docs/WINDOWS.md', 'docs/WINDOWS_HANDOFF.md',
     'tests/test_aidev.py', 'tests/test_portability.py', 'tools/windows_handoff.py',
     'src/terrain_runtime.py', 'src/terrain_provider.py', 'src/terrain-0.9.5-aidev.patch', 'docs/TERRAIN.md',
     'tests/test_terrain.py', '.github/workflows/terrain.yml', 'tools/terrain_ci.py',
@@ -64,7 +64,7 @@ def verify(expected_head=None):
     head = git('rev-parse', 'HEAD')
     status = git('status', '--porcelain', '--untracked-files=all')
     tracked = git('ls-files', '-z')
-    required = set(FILES) | {MANIFEST.name}
+    required = set(FILES) | {MANIFEST.relative_to(ROOT).as_posix()}
     missing_from_git = sorted(required - set((tracked or '').split('\0')))
     content_ok = not mismatches
     expected_ok = head is not None and expected_head is not None and head == expected_head

@@ -135,7 +135,7 @@ WindowsのOS実測はServer 2025 Datacenter build `10.0.26100`、runner imageは
 
 ## source修正済み・引き継ぎ
 
-Windows側の作業要求と手順は、ソースに含む [/home/tn/projects/aidev/WINDOWS_HANDOFF.md](https://github.com/tsutomu-n/aidev/blob/feat/terrain-integration/WINDOWS_HANDOFF.md) を正本とします。W-01〜W-03のsource修正とnative Windows用W-01回帰testを含むコードは上記CIで成功しました。通常利用やWindows完全受入は別の判定です。
+Windows側の作業要求と手順は、ソースに含む [/home/tn/projects/aidev/docs/WINDOWS_HANDOFF.md](https://github.com/tsutomu-n/aidev/blob/main/docs/WINDOWS_HANDOFF.md) を正本とします。W-01〜W-03のsource修正とnative Windows用W-01回帰testを含むコードは上記CIで成功しました。通常利用やWindows完全受入は別の判定です。
 
 - W-01：launcherは裸の `py -3` を廃止し、導入時に検証したPython絶対パス・version・形式をrelease manifestへ記録する。native Windows testは空白・日本語・`&`・括弧・`!`を含む一時Python環境からinstallerを実行し、生成された`.cmd`の起動、子プロセスのPython実体とmatrix指定版、引数・終了コードを照合する。cwdの偽`py`とPATH上の偽`python`が名前探索で実行される対照試験も含む。このtestはWindows CIの両Python構成でPASSし、起動Python固定のnative evidenceが成立した。
 - W-02：所有判定をロック取得後へ移し、release準備後・公開直前のentry再照合と、上書き禁止の公開へ変更した。管理外commandを保全する回帰テストはUbuntu/Windows CIで成功した。
@@ -149,7 +149,7 @@ Windowsの導入・更新テストでは、成功時にも既存の `Parameter f
 
 - sourceに [/home/tn/projects/aidev/AGENTS.md](https://github.com/tsutomu-n/aidev/blob/feat/terrain-integration/AGENTS.md) を配置し、Windows側Codexの開始時に引き継ぎ資料を読む導線を追加。
 - [/home/tn/projects/aidev/tools/windows_handoff.py](https://github.com/tsutomu-n/aidev/blob/feat/terrain-integration/tools/windows_handoff.py) は、受領内容照合と一時fixtureでの既知不具合再現を担当。通常利用環境への導入・provider実行はしない。
-- [/home/tn/projects/aidev/WINDOWS_HANDOFF_MANIFEST.json](https://github.com/tsutomu-n/aidev/blob/feat/terrain-integration/WINDOWS_HANDOFF_MANIFEST.json) はUTF-8/LF正規化したsource inventory。期待commitとcleanなGit状態も照合して受領を確認する。署名や実機受入の代替ではない。
+- [/home/tn/projects/aidev/docs/WINDOWS_HANDOFF_MANIFEST.json](https://github.com/tsutomu-n/aidev/blob/main/docs/WINDOWS_HANDOFF_MANIFEST.json) はUTF-8/LF正規化したsource inventory。期待commitとcleanなGit状態も照合して受領を確認する。署名や実機受入の代替ではない。
 
 引き継ぎ補助のUbuntu検証では、cleanな一時Git repoの受領成功、異なるHEADの拒否、CRLFの許容、内容変更の拒否、不正inventoryの拒否を確認しました。PowerShell例13ブロックは構文検査済みで、Windows上での実行結果ではありません。source修正後の再現ツールはW-01をUNVERIFIED、W-02・W-03-source・W-03-publishをPASSとして返します。これらはunit testsとは別の確認です。
 
