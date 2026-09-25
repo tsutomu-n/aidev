@@ -14,10 +14,38 @@ import uuid
 
 from platform_support import WINDOWS, data_home, directory_lock, is_link
 
-SOURCE = Path(__file__).resolve().parent
+CHECKOUT_ROOT = Path(__file__).resolve().parent.parent
+SOURCE = CHECKOUT_ROOT
 TARGET = data_home()
 ENTRY = TARGET / "bin/aidev.cmd" if WINDOWS else Path.home() / ".local/bin/aidev"
 FILES = ("aidev.py", "provider_probe.py", "provider_build.py", "platform_support.py", "README.md", "USER_GUIDE.md", "TECHNICAL.md", "STATUS.md", "WINDOWS.md", "terrain_provider.py", "terrain_runtime.py", "terrain-0.9.5-aidev.patch", "TERRAIN.md", "context-qualification.json", "codex-acp-1.11.0-context.patch")
+SOURCE_BUNDLE_FILES = frozenset(name for name in FILES if name.endswith((".py", ".patch", ".json")))
+SOURCE_DOC_FILES = frozenset({"USER_GUIDE.md", "TECHNICAL.md", "STATUS.md", "WINDOWS.md", "TERRAIN.md"})
+
+
+def source_file(folder, name):
+    """Read checkout sources from src/ and docs/, but fixture bundles flat."""
+    if folder == CHECKOUT_ROOT:
+        if name in SOURCE_BUNDLE_FILES:
+            return folder / "src" / name
+        if name in SOURCE_DOC_FILES:
+            return folder / "docs" / name
+    return folder / name
+
+
+def bundle_bytes(folder, name):
+    path = source_file(folder, name)
+    if is_link(path) or not path.is_file():
+        raise ValueError(f"通常の配布ファイルではありません: {path}")
+    data = path.read_bytes()
+    if folder == CHECKOUT_ROOT and name.endswith(".md"):
+        for source_name in SOURCE_BUNDLE_FILES:
+            for prefix in ("src/", "../src/"):
+                data = data.replace(f"]({prefix}{source_name}".encode(), f"]({source_name}".encode())
+        for doc_name in SOURCE_DOC_FILES:
+            data = data.replace(f"](docs/{doc_name}".encode(), f"]({doc_name}".encode())
+        data = data.replace(b"](../README.md", b"](README.md")
+    return data
 LEGACY_HASHES = {
     "aidev.py": "fe6b2ed14922df68e63be57dbf5362e5e2f36adb575a946ba9f63d9b1b23876b",
     "provider_probe.py": "319a6b845c49ff6ec4b74bfca2b64f1eea12f58afdb88f66125b5dc5040580bd",
@@ -53,7 +81,10 @@ def runtime():
 
 
 def release_manifest(folder, names, run):
-    return {"application": "aidev", "schema_version": 2, "files": hashes(folder, names), "runtime": run}
+    result = {}
+    for name in names:
+        result[name] = hashlib.sha256(bundle_bytes(folder, name)).hexdigest()
+    return {"application": "aidev", "schema_version": 2, "files": result, "runtime": run}
 
 
 def stage_release(folder, names, run=None):
@@ -73,7 +104,7 @@ def stage_release(folder, names, run=None):
     staging = Path(tempfile.mkdtemp(prefix=".staging-", dir=releases))
     try:
         for name in names:
-            shutil.copyfile(folder / name, staging / name)
+            (staging / name).write_bytes(bundle_bytes(folder, name))
             os.chmod(staging / name, 0o700 if name == "aidev.py" else 0o600)
             if name.endswith(".py"):
                 ast.parse((staging / name).read_text(encoding="utf-8"), filename=name)

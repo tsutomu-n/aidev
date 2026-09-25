@@ -1,23 +1,23 @@
-# Python bytecode and local virtual environments
+# Generated Python files and local environments, including nested ones
 __pycache__/
 *.py[cod]
-/.venv/
-/venv/
+.venv/
+venv/
 
-# Local environment values; reviewed templates may be shared
+# Local environment values; reviewed templates may be tracked
 .env
 .env.*
 !.env.example
 
-# Machine-specific acceptance runs and generated test repositories
+# Machine-specific acceptance evidence and disposable test repositories
 /verification/
 
-# Local reference archives and session handoffs (not release inputs)
+# Local references and session state, outside the source release
 /.ref/
 /.ai_memory/
 /.codex/SP_STATE.md
 
-# aidev state, backups and provider logs
+# Repo-local aidev state and backups
 /.aidev/
 
 # Provider runtime and indexes; keep shared project configuration visible
@@ -29,7 +29,7 @@ __pycache__/
 /.code-review-graph/
 /graphify-out/
 
-# Terrain packs and machine-local metadata; shared knowledge stays visible
+# Derived Terrain packs and local metadata; shared context stays visible
 /.terrain/agent/repomix.md
 /.terrain/agent/meta.json
 /.terrain/agent/meta-inputs*

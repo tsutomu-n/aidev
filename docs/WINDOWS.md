@@ -2,7 +2,7 @@
 
 aidev 0.3.0にはWindows用のロック、子プロセス管理、インストーラーとprovider登録機能があります。WSL・Ubuntuの承認台帳・管理者権限・シンボリックリンク作成権限を前提にしません。**この変更を作成した環境はUbuntuです。Windows実機と実providerを通した受入は未確認です。** 以下は実機で確認しながら進める手順です。
 
-**開発引き継ぎ：W-01〜W-03のsource修正はcommit済みで、fixtureルート正規化後のCI全4構成も成功しました。Windows 11実機受入は未実施です。** Windows側で検証する場合は、ソースに含む [/home/tn/projects/aidev/WINDOWS_HANDOFF.md](https://github.com/tsutomu-n/aidev/blob/feat/terrain-integration/WINDOWS_HANDOFF.md) の受入表から始めてください。検証commit・CIの証拠は [/home/tn/projects/aidev/STATUS.md](STATUS.md) にあります。
+**開発引き継ぎ：W-01〜W-03のsource修正はcommit済みで、fixtureルート正規化後のCI全4構成も成功しました。Windows 11実機受入は未実施です。** Windows側で検証する場合は、ソースに含む [/home/tn/projects/aidev/WINDOWS_HANDOFF.md](https://github.com/tsutomu-n/aidev/blob/feat/terrain-integration/WINDOWS_HANDOFF.md) の受入表から始めてください。検証commit・CIの証拠は [/home/tn/projects/aidev/docs/STATUS.md](STATUS.md) にあります。
 
 ## 1. 必要なものを確認する
 
@@ -24,8 +24,8 @@ uv --version
 ```powershell
 $AidevSource = (Get-Location).Path
 $AidevPython = (Read-Host '確認済みPython 3.11以降のexe絶対パス').Trim()
-& $AidevPython -X utf8 (Join-Path $AidevSource 'aidev.py') --version
-& $AidevPython -X utf8 (Join-Path $AidevSource 'install.py')
+& $AidevPython -X utf8 (Join-Path $AidevSource 'src/aidev.py') --version
+& $AidevPython -X utf8 (Join-Path $AidevSource 'src/install.py')
 $Aidev = Join-Path $env:LOCALAPPDATA 'aidev\bin\aidev.cmd'
 & $Aidev --version
 ```
@@ -115,7 +115,7 @@ Windowsでは実際の排他ロック、Job Objectによる孫プロセス終了
 - 設定先・出力先のjunction、symlink、その他のreparse pointは拒否します。OneDrive等のreparse pointを含む配置で停止したら、通常のローカルディレクトリを使用します。
 - タイムアウト・中断では子プロセス一式を終了し、providerログをrepo内に保存します。Jobへの所属前はbootstrapが待機し、providerが先に子を生成する競合を防ぎます。
 - launcherは導入を実行した確認済みPythonの絶対パスを記録して使います。Pythonが消えた場合、別のPythonやPATHへfallbackせず停止します。
-- Windows CIではlauncher実行時に既存の `Parameter format not correct - code` が残っています。起動・引数・終了コードの検証は成功していますが、元のcode pageの復元は未確認です。詳しい証拠と範囲は [/home/tn/projects/aidev/STATUS.md](STATUS.md) を参照してください。
+- Windows CIではlauncher実行時に既存の `Parameter format not correct - code` が残っています。起動・引数・終了コードの検証は成功していますが、元のcode pageの復元は未確認です。詳しい証拠と範囲は [/home/tn/projects/aidev/docs/STATUS.md](STATUS.md) を参照してください。
 - 導入中に競合を検出すると新旧entryを上書きせず停止します。更新時の旧entryは管理先の専用退避先に残り、復旧が必要な場合は表示されたentry backupを確認してください。短い入口不在区間があり得るため、中断時は同じsource・同じPythonで再実行します。
 - 全3providerが前提です。1つだけ成功しても通常利用可能とは判定しません。従来3providerには自動承認、外部LLM呼出し、watcher、Git hook、自動commit/pushは追加していません。
 
@@ -125,4 +125,4 @@ WindowsのTerrain runtimeは未サポートです。`aidev terrain` のhelpは�
 
 context専用ACP修正と固定qualificationはLinux候補向けです。Ubuntuでの実LLM受入成功はWindowsの受入・導入成功を意味しません。qualificationの絶対パス・依存hashを手編集して起動拒否を迂回しないでください。
 
-既存3provider・installer・WindowsのPython 3.11/3.13回帰CIは維持します。Terrain runtimeの正式検証対象はUbuntu 24.04 x86_64です。過去のWindows upstream test harness失敗は履歴として残し、成功とは扱いません。契約と現在の検証結果は [/home/tn/projects/aidev/TERRAIN.md](TERRAIN.md) と [/home/tn/projects/aidev/STATUS.md](STATUS.md) を確認してください。
+既存3provider・installer・WindowsのPython 3.11/3.13回帰CIは維持します。Terrain runtimeの正式検証対象はUbuntu 24.04 x86_64です。過去のWindows upstream test harness失敗は履歴として残し、成功とは扱いません。契約と現在の検証結果は [/home/tn/projects/aidev/docs/TERRAIN.md](TERRAIN.md) と [/home/tn/projects/aidev/docs/STATUS.md](STATUS.md) を確認してください。

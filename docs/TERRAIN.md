@@ -12,7 +12,7 @@ known-fileの小修正ではlive sourceを直接読みます。architecture・mu
 
 ## マシンで一度だけ準備
 
-この端末の通常導入では、検証済みTerrain・ACP・MCPの既存実体を `/home/tn/.local/share/aidev/dependencies` の内容hash別directoryへコピーし、移設後の全gateを検証して登録しています。Codex・Nodeは既存の版固定実体を使います。以前の隔離候補のパスへ戻したりqualificationを手編集したりせず、実行時に照合される登録とhashを維持してください。今回の通常受入結果は [/home/tn/projects/aidev/STATUS.md](STATUS.md) にあります。
+この端末の通常導入では、検証済みTerrain・ACP・MCPの既存実体を `/home/tn/.local/share/aidev/dependencies` の内容hash別directoryへコピーし、移設後の全gateを検証して登録しています。Codex・Nodeは既存の版固定実体を使います。以前の隔離候補のパスへ戻したりqualificationを手編集したりせず、実行時に照合される登録とhashを維持してください。今回の通常受入結果は [/home/tn/projects/aidev/docs/STATUS.md](STATUS.md) にあります。
 
 ```sh
 aidev terrain install --allow-download
@@ -62,7 +62,7 @@ aidev terrain refresh --build-context
 
 このflagはCodex ACPによるLLM処理・外部送信を許可する操作です。同じ入力・runtime・policy・出力hashなら再生成しません。flagなしはローカルscan/packのみで、既存contextを削除せずstaleと記録します。
 
-context生成には `@agentclientprotocol/codex-acp 1.11.0` の検証済み修正版が必要です。version一致だけでは起動せず、配布物内の [/home/tn/projects/aidev/context-qualification.json](context-qualification.json) と固定hash、ACP・Codex・Node・MCP entry・依存treeをsetup、生成前、起動直前に照合します。記録は特定Linux環境の絶対パスにも結び付くため、他環境での利用許可ではありません。記録の手編集やhash差し替えで検査を通さず、別実体は別の検証が必要です。
+context生成には `@agentclientprotocol/codex-acp 1.11.0` の検証済み修正版が必要です。version一致だけでは起動せず、配布物内の [/home/tn/projects/aidev/src/context-qualification.json](../src/context-qualification.json) と固定hash、ACP・Codex・Node・MCP entry・依存treeをsetup、生成前、起動直前に照合します。記録は特定Linux環境の絶対パスにも結び付くため、他環境での利用許可ではありません。記録の手編集やhash差し替えで検査を通さず、別実体は別の検証が必要です。
 
 setupは選択したengineのpath/hash/version、CODEX_HOME、JS版のNode実体とqualification hashを登録します。`CODEX_PATH` とPATHのNodeは検証記録の実体を指定してください。生成前は登録engineで `login status` を実行し、同じengine・認証先をACPへ渡します。登録と異なるCODEX_PATH/CODEX_HOMEや変更済み依存は停止します。旧登録は検証済み実体を用いてsetupの `--approve --replace` が必要ですが、未検証ACPを実行して検証済みに変える操作ではありません。browser・loginは自動起動しません。
 
@@ -152,12 +152,12 @@ AGENTSの既存本文を保全し、aidev管理marker内だけを更新します
 - patchはMarketLens正式patchを基礎に、context path/H2/Unicode補正、OpenAPI gitignore、ACP mode伝播と空白pathのavailability判定を含む3ファイル。
 - patch SHA256（LF正規化）: `893efe60ec622ef6741e20d8a81c840124de60b823e842854c789ee9681f40c1`。実sourceから算出し、approval/build manifestへ記録します。
 
-ACP側の修正は [/home/tn/projects/aidev/codex-acp-1.11.0-context.patch](codex-acp-1.11.0-context.patch) に収録しています。対象は既存1.11.0のJS配布物内 `dist/index.js` で、変更前SHA256は `3527bdaf90a219175c742576963e6d9e943e4ea5fbdbc3e04e7f57f9a9e11343`、変更後は `d38570bf20023bbf32f89b007bafee3f0af9fa34a0eab60b445955ee595ccbc0`。TypeScript再buildやpackageの自動取得ではありません。既存配布物への差分を保存したもので、patch適用だけで別環境のqualificationを満たすとは扱いません。
+ACP側の修正は [/home/tn/projects/aidev/src/codex-acp-1.11.0-context.patch](../src/codex-acp-1.11.0-context.patch) に収録しています。対象は既存1.11.0のJS配布物内 `dist/index.js` で、変更前SHA256は `3527bdaf90a219175c742576963e6d9e943e4ea5fbdbc3e04e7f57f9a9e11343`、変更後は `d38570bf20023bbf32f89b007bafee3f0af9fa34a0eab60b445955ee595ccbc0`。TypeScript再buildやpackageの自動取得ではありません。既存配布物への差分を保存したもので、patch適用だけで別環境のqualificationを満たすとは扱いません。
 
 ## 検証と制限
 
 Pythonのfixture testsは既存Ubuntu/Windows × Python 3.11/3.13 workflowに含まれます。別のTerrain workflowはUbuntu 24.04 x86_64でexact upstream、patch適用範囲、focused Rust tests、release build、behavior smokeを検査します。runtimeのcore/agent/CLI full testsはclean baselineとtest名・failure内容を比較し、新規failureを拒否します。desktop GUIはaidev配布runtimeの対象外です。upstream全体へのformat変更は行いません。
 
-live Codex ACPは通常CIに含めません。実認証・外部送信許可のあるdisposable fixtureで別受入とし、未実施はUNVERIFIEDです。live受入では生成前後のsource fingerprintとGit statusを保存・比較し、source modificationが0であることを実測します。mode設定だけではsource不変の証明にしません。固定候補の受入後、移設済み依存と通常launcher・通常CODEX_HOMEでも実LLM受入を完了しました。非LLM qualificationの隔離設定、導入前の候補受入、今回の通常受入、Windows未受入を区別し、結果は [/home/tn/projects/aidev/STATUS.md](STATUS.md) に記録します。shell sandboxはMCP・hook自身の作用を防ぎません。
+live Codex ACPは通常CIに含めません。実認証・外部送信許可のあるdisposable fixtureで別受入とし、未実施はUNVERIFIEDです。live受入では生成前後のsource fingerprintとGit statusを保存・比較し、source modificationが0であることを実測します。mode設定だけではsource不変の証明にしません。固定候補の受入後、移設済み依存と通常launcher・通常CODEX_HOMEでも実LLM受入を完了しました。非LLM qualificationの隔離設定、導入前の候補受入、今回の通常受入、Windows未受入を区別し、結果は [/home/tn/projects/aidev/docs/STATUS.md](STATUS.md) に記録します。shell sandboxはMCP・hook自身の作用を防ぎません。
 
 submodule入力、symlink/reparse/hardlinkを含む入力・生成先は初版では停止します。read-pack-fileはupstreamの圧縮packに基づく探索であり、live sourceの厳密転記ではありません。自動redaction、watch daemon、Git hook、Litho/SDD自動生成、plugin frameworkはありません。

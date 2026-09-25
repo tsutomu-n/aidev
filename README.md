@@ -1,30 +1,12 @@
-# aidev — コード解析の準備をまとめるCLI
+# aidev — Gitリポジトリのコード解析を準備するCLI
 
-Windows 11 / UbuntuのGitリポジトリに、Serena・Graphify・code-review-graph（CRG）の設定と検索用索引を作ります。自動言語設定はPython・JavaScript・TypeScriptに対応します。
+Serena・Graphify・code-review-graph（CRG）の設定と検索用索引を、解析対象のGitリポジトリに作ります。Python・JavaScript・TypeScriptの言語設定に対応します。解析ツール自体の自動インストールは行いません。
 
-**Windowsで仕上げる方は、先に次の「Windows側で実装を引き継ぐ」へ進んでください。** Python 3.11以降・Gitと指定版の解析ツールが必要です。Windowsでは専用のprovider登録、Ubuntuでは既存共通基盤または専用登録を使います。既存3providerの自動導入は行いません。
+## 使い始める
 
-## Windows側で実装を引き継ぐ
+Python 3.11以降、Git、指定版の3つの解析ツールが必要です。導入とprovider登録の条件は [/home/tn/projects/aidev/docs/USER_GUIDE.md](docs/USER_GUIDE.md#install)、Windows固有の手順は [/home/tn/projects/aidev/docs/WINDOWS.md](docs/WINDOWS.md) を確認してください。
 
-Ubuntuの通常launcher・依存移設・実LLM受入は完了しました。今回の導入差分は未commit・未公開で、別環境の受入は独立です。実測結果と制限は [/home/tn/projects/aidev/STATUS.md](STATUS.md) にあります。
-
-**W-01〜W-03のsource修正とfixtureのパス正規化は、Ubuntu/Windows × Python 3.11/3.13のCI全4構成で成功しました。Windows 11実機受入は未完了です。** 検証したcommit・CIの証拠と残る警告は [/home/tn/projects/aidev/STATUS.md](STATUS.md) を参照してください。Windows側のCodexには、ソースに含む [/home/tn/projects/aidev/WINDOWS_HANDOFF.md](https://github.com/tsutomu-n/aidev/blob/feat/terrain-integration/WINDOWS_HANDOFF.md) を渡してください。通常利用環境への導入は別途指示が必要です。
-
-## マニュアルへ進む
-
-| やりたいこと | ジャンプ先 |
-|---|---|
-| Windows 11で導入する | [/home/tn/projects/aidev/WINDOWS.md](WINDOWS.md) |
-| 導入・初回操作・日常操作を学ぶ | [/home/tn/projects/aidev/USER_GUIDE.md](USER_GUIDE.md) |
-| エラーから復旧する | [/home/tn/projects/aidev/USER_GUIDE.md — トラブル対応](USER_GUIDE.md#troubleshooting) |
-| 実装や設定の契約を調べる | [/home/tn/projects/aidev/TECHNICAL.md](TECHNICAL.md) |
-| 対応範囲・未検証事項を確認する | [/home/tn/projects/aidev/STATUS.md](STATUS.md) |
-
-リンクはclone内とGitHubで移動できる相対リンクです。表示パスはこの作業環境の配置先です。インストーラーはTerrain modules・patch・操作文書を含む13ファイルを同じreleaseに配置します。同梱文書間のリンクはインストール先でも開けます。開発引き継ぎ・tests・installer・inventoryは配布対象外のため、GitHubのfeature sourceへリンクします。参照先branchと導入版のcommitが一致するか別途確認してください。
-
-## 導入済みの方の操作
-
-**解析したいGitリポジトリのルート**へ移動し、1行ずつ結果を確認します。
+`aidev`を導入済みなら、**解析したいリポジトリのGit root**で実行します。このaidevのソースcheckoutを初期化場所として指定する必要はありません。
 
 ```sh
 aidev --version
@@ -33,12 +15,21 @@ aidev init
 aidev doctor
 ```
 
-`--dry-run` は変更予定だけを表示します。`init` は設定と索引を作成・更新し、`doctor` は書き換えずに診断します。`LOCAL_READY` が出たら、新規Codexセッションで接続と実際のコード照会を確認します。`codex_mcp: UNVERIFIED` は接続未検査の意味です。
+`init --dry-run`は変更予定の確認、`init`は設定・索引の作成または更新、`doctor`は書込みなしの診断です。`LOCAL_READY`はローカルの準備完了を示します。Codexとの接続と実際の照会は、新しいCodexセッションで別途確認してください。操作と結果の読み方は [/home/tn/projects/aidev/docs/USER_GUIDE.md](docs/USER_GUIDE.md#first-run) にあります。
 
-初回導入・更新の手順は [/home/tn/projects/aidev/USER_GUIDE.md](USER_GUIDE.md#install) にあります。文書の対象はソース **0.3.0**。Windows実機・実providerでの一連の受入は未実施です。詳細は [/home/tn/projects/aidev/STATUS.md](STATUS.md) を参照してください。
+## ソースの配置
 
-## 任意のTerrain knowledge layer
+| 場所 | 内容 |
+|---|---|
+| `src/` | CLI、インストーラー、provider連携、Terrain、配布用patch・qualification |
+| `docs/` | 操作手順、技術仕様、検証状態と受入記録 |
+| `tests/` | Python回帰テスト |
+| `tools/` | Windows引き継ぎ・Terrain CI等の補助コマンド |
 
-Terrain runtimeの正式検証対象はUbuntu 24.04 x86_64です。WindowsではTerrain操作は未サポートですが、既存3providerは継続利用できます。0.3.0では `aidev terrain install --allow-download` または `aidev terrain setup` でruntimeを準備し、対象repoで `aidev terrain init` → `aidev terrain doctor` を使えます。Agent ContextのLLM生成は明示的な `--build-context` 時だけです。既存の `aidev init` にTerrainは自動追加しません。
+ソースと導入済みCLIは別です。インストーラーは必要なファイルを平坦なreleaseディレクトリへ配置します。ソースを編集しただけでは通常利用環境のCLIは更新されません。導入・更新は上記の操作手順に従ってください。
 
-CLI、安全性、migration、検証の境界は [/home/tn/projects/aidev/TERRAIN.md](TERRAIN.md) にあります。Terrainは探索補助であり、編集前にlive source/testsへ戻って確認します。
+## 対応範囲と任意機能
+
+既存3providerはTerrainなしで利用できます。TerrainはUbuntu向けの任意の探索補助で、`aidev terrain`から明示的に準備します。Agent ContextのLLM生成は`--build-context`を指定した場合だけです。契約と手順は [/home/tn/projects/aidev/docs/TERRAIN.md](docs/TERRAIN.md) を確認してください。
+
+ソースの版は0.3.0です。Ubuntu通常環境の受入記録とWindows実機で未確認の範囲は [/home/tn/projects/aidev/docs/STATUS.md](docs/STATUS.md) に分けて記載しています。Windows引き継ぎの正本はソースcheckout直下の `WINDOWS_HANDOFF.md` で、実行用releaseには含めません。

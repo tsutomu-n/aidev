@@ -2,7 +2,7 @@
 
 context専用ACP修正は固定Linux候補の受入後、Ubuntu通常環境への依存移設・導入・実LLM受入も完了しました。旧3ファイル移行修正と92件のPython全suite（Windows専用2件skip）はUbuntuの結果です。Windows Terrainの受入・通常導入は未実施で、元の実LLM失敗やWindows CIの履歴を成功へ書き換えません。固定qualificationの起動拒否を手編集で迂回しないでください。受領manifestの一致も実機検証の代替ではありません。
 
-現行sourceは0.3.0（Terrain任意統合）です。下記0.2.0のWindows回帰履歴を保持しています。WindowsではTerrain runtimeは未サポートであり、この文書の実機受入対象は既存3providerとaidev coreです。Ubuntu Terrainの受入・現在の判定は [/home/tn/projects/aidev/TERRAIN.md](TERRAIN.md) と [/home/tn/projects/aidev/STATUS.md](STATUS.md) を確認してください。旧CI成功は0.3.0のWindows build/ACP受入の証拠ではありません。
+現行sourceは0.3.0（Terrain任意統合）です。下記0.2.0のWindows回帰履歴を保持しています。WindowsではTerrain runtimeは未サポートであり、この文書の実機受入対象は既存3providerとaidev coreです。Ubuntu Terrainの受入・現在の判定は [/home/tn/projects/aidev/docs/TERRAIN.md](docs/TERRAIN.md) と [/home/tn/projects/aidev/docs/STATUS.md](docs/STATUS.md) を確認してください。旧CI成功は0.3.0のWindows build/ACP受入の証拠ではありません。
 
 **目的：aidev 0.2.0のWindows対応候補を、ネイティブWindows 11で検証し、実際に利用できる状態へ仕上げる。** W-01〜W-03のsource修正とfixtureのパス正規化はCI全4構成で成功しました。残る警告を確認し、専用の検証環境で導入と実providerの受入を進めます。現時点でWindows 11対応の完成・受入済みとは判定しません。
 
@@ -37,7 +37,7 @@ Ubuntu側の作業ソースは [/home/tn/projects/aidev](/home/tn/projects/aidev
 | CIのOS | Ubuntu 24.04 / Windows Server 2025 Datacenter build `10.0.26100`。Windows image `windows-2025-vs2026` / `20260907.229.1`。Windows 11実機とは別 |
 | 公開元のbase commit | `238c0f3d6312915a8bc8c48784b309b21463eaa8`。このcommitだけではWindows対応差分は入らない |
 
-既存のWindows操作案は [/home/tn/projects/aidev/WINDOWS.md](WINDOWS.md)、実装契約は [/home/tn/projects/aidev/TECHNICAL.md](TECHNICAL.md)、検証状態は [/home/tn/projects/aidev/STATUS.md](STATUS.md) にあります。操作案より、この資料の修正済み項目と残る受入条件を先に確認してください。
+既存のWindows操作案は [/home/tn/projects/aidev/docs/WINDOWS.md](docs/WINDOWS.md)、実装契約は [/home/tn/projects/aidev/docs/TECHNICAL.md](docs/TECHNICAL.md)、検証状態は [/home/tn/projects/aidev/docs/STATUS.md](docs/STATUS.md) にあります。操作案より、この資料の修正済み項目と残る受入条件を先に確認してください。
 
 ## 3. Windows側へcloneして内容を照合する
 
@@ -123,7 +123,7 @@ source修正後のUbuntu fixtureではW-01が `UNVERIFIED`、W-02・W-03-source�
 
 ### W-01：ランチャーが起動Pythonを固定していない（優先度高）
 
-対象は [/home/tn/projects/aidev/install.py](install.py) の `windows_launcher()` と `install()` です。裸の `py -3` は廃止し、インストーラー自身で実行中Pythonの絶対パスと3.11以降を検証し、release manifestとUTF-8 cmd launcherへ固定します。cmdはcode pageを退避・切替・復元し、引数と終了コードを保全します。[Microsoftのpath仕様](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/path)
+対象は [/home/tn/projects/aidev/src/install.py](src/install.py) の `windows_launcher()` と `install()` です。裸の `py -3` は廃止し、インストーラー自身で実行中Pythonの絶対パスと3.11以降を検証し、release manifestとUTF-8 cmd launcherへ固定します。cmdはcode pageを退避・切替・復元し、引数と終了コードを保全します。[Microsoftのpath仕様](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/path)
 
 根拠の区分：source fixtureでlauncher bytesとmetadataを確認。Windows Server 2025のCIでnative cmd起動・固定Python・引数・終了コード・偽コマンド非実行が成功しました。導入・更新テストには既存の `Parameter format not correct - code` が残り、元のcode pageの復元成功は未確認です。Windows 11端末での検証も未実施です。
 
@@ -133,7 +133,7 @@ source修正後のUbuntu fixtureではW-01が `UNVERIFIED`、W-02・W-03-source�
 
 ### W-02：初回導入の競合で管理外コマンドを上書きする（優先度高）
 
-対象は [/home/tn/projects/aidev/install.py](install.py) です。所有判定はロック取得後へ移し、release準備後と公開直前にentryを再照合します。初回公開は存在しない宛先だけへ行い、更新時は旧entryを専用退避先へ保持してから空の宛先へ公開します。
+対象は [/home/tn/projects/aidev/src/install.py](src/install.py) です。所有判定はロック取得後へ移し、release準備後と公開直前にentryを再照合します。初回公開は存在しない宛先だけへ行い、更新時は旧entryを専用退避先へ保持してから空の宛先へ公開します。
 
 修正前の再現条件：Windowsレイアウトを一時ディレクトリに用意し、`directory_lock()` の取得直前に別の処理が入口へ利用者のコマンドを書き込みました。修正前コードは `existed=False` のままそのコマンドを初期値として受け入れ、後で上書きしました。Ubuntu上でWindowsのファイル処理分岐を使った再現試験では `USER_COMMAND_OVERWRITTEN=True` でした。修正後はUbuntu/Windows CIの回帰テストで管理外commandの保全を確認しています。
 
@@ -143,7 +143,7 @@ source修正後のUbuntu fixtureではW-01が `UNVERIFIED`、W-02・W-03-source�
 
 ### W-03：初回導入が途中で失敗すると再実行で復旧できない（優先度中）
 
-対象は [/home/tn/projects/aidev/install.py](install.py) の `stage_release()`、`active_release()`、`install()` です。installer所有の `installation-progress.json` をrelease準備前から記録し、完成releaseとentry公開段階を区別します。
+対象は [/home/tn/projects/aidev/src/install.py](src/install.py) の `stage_release()`、`active_release()`、`install()` です。installer所有の `installation-progress.json` をrelease準備前から記録し、完成releaseとentry公開段階を区別します。
 
 修正前の再現条件：一時sourceのPythonファイルに構文エラーを入れて初回導入すると、release用ディレクトリ作成後に `SyntaxError` となりました。sourceを修復して再実行しても通常実行は「既存配置あり」、`--upgrade` は「管理外コマンド」で停止しました。修正後はUbuntu/Windows CIで初回失敗からの再試行と所有記録のないpartialの保全を確認しています。source修復は一時fixture内でのみ行い、実sourceを壊して再現しないでください。
 
@@ -233,7 +233,7 @@ provider自身が使うcache、config、言語サーバーの保存先も確認�
 
 全項目が揃うまで「Windows 11受入完了」とはしません。ただし接続確認や環境導入に阻害要因がある場合も、独立して完了できるコード修正と検証は進めます。
 
-公開してよい要約は [/home/tn/projects/aidev/STATUS.md](STATUS.md) と本資料へ反映します。ローカルの詳細記録は、Windows側で実測したGit rootから `Join-Path $AidevSource 'verification/windows11'` で解決する保存先へ置けます。この生成物は既存のGit除外対象です。秘密、トークン、顧客コード、不要な環境変数一覧を記録・公開しないでください。
+公開してよい要約は [/home/tn/projects/aidev/docs/STATUS.md](docs/STATUS.md) と本資料へ反映します。ローカルの詳細記録は、Windows側で実測したGit rootから `Join-Path $AidevSource 'verification/windows11'` で解決する保存先へ置けます。この生成物は既存のGit除外対象です。秘密、トークン、顧客コード、不要な環境変数一覧を記録・公開しないでください。
 
 要約には開始時と終了時のHEAD、dirty差分の有無、OS/build/architecture、Python実体/版、provider版、実行コマンドと終了コード、期待結果との一致、skipの理由、未確認・阻害要因を残します。未commit差分で試した場合は、HEADだけを証拠にせず、試したsourceのmanifestと差分の識別も残します。
 

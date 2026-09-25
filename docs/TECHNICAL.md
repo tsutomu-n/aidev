@@ -1,8 +1,8 @@
 # aidev 0.3.0 技術仕様
 
-入口：[/home/tn/projects/aidev/README.md](README.md) ／ 操作手順：[/home/tn/projects/aidev/USER_GUIDE.md](USER_GUIDE.md)
+入口：[/home/tn/projects/aidev/README.md](../README.md) ／ 操作手順：[/home/tn/projects/aidev/docs/USER_GUIDE.md](USER_GUIDE.md)
 
-この文書は同じcheckoutの [/home/tn/projects/aidev/aidev.py](aidev.py)、[/home/tn/projects/aidev/provider_probe.py](provider_probe.py)、[/home/tn/projects/aidev/provider_build.py](provider_build.py)、[/home/tn/projects/aidev/install.py](https://github.com/tsutomu-n/aidev/blob/feat/terrain-integration/install.py) を基準とします。今回の作業元はmainで、通常導入用の差分は未commitです。検証したHEADと受入範囲は [/home/tn/projects/aidev/STATUS.md](STATUS.md) に記録します。installerへのリンクは配布対象外のsourceへの参照です。
+この文書は同じcheckoutの [/home/tn/projects/aidev/src/aidev.py](../src/aidev.py)、[/home/tn/projects/aidev/src/provider_probe.py](../src/provider_probe.py)、[/home/tn/projects/aidev/src/provider_build.py](../src/provider_build.py)、[/home/tn/projects/aidev/src/install.py](https://github.com/tsutomu-n/aidev/blob/main/src/install.py) を基準とします。今回の作業元はmainで、通常導入用の差分は未commitです。検証したHEADと受入範囲は [/home/tn/projects/aidev/docs/STATUS.md](STATUS.md) に記録します。installerへのリンクは配布対象外のsourceへの参照です。
 
 ## 責務と依存
 
@@ -14,7 +14,7 @@
 | installer | 管理対象のhash確認、release配置、OS別ランチャーの切替、旧release保持 |
 | 既存共通基盤 | provider承認・整合性とCLI実体。aidevから承認を書き換えない |
 
-本体はPython 3.11以降の標準ライブラリを使います。OS依存処理は [/home/tn/projects/aidev/platform_support.py](platform_support.py) に分離し、Ubuntuは `fcntl.flock` / process group、Windowsは名前付きsemaphore / Job Objectを使います。Windows実機受入は未確認です。providerの内部APIやschemaを参照するため、Serena 1.7.0、Graphify 0.9.55、CRG 2.3.8を要求します。
+本体はPython 3.11以降の標準ライブラリを使います。OS依存処理は [/home/tn/projects/aidev/src/platform_support.py](../src/platform_support.py) に分離し、Ubuntuは `fcntl.flock` / process group、Windowsは名前付きsemaphore / Job Objectを使います。Windows実機受入は未確認です。providerの内部APIやschemaを参照するため、Serena 1.7.0、Graphify 0.9.55、CRG 2.3.8を要求します。
 
 追加する能力は `symbol_semantics: [serena]`、`architecture_relationships: [graphify]`、`change_impact: [crg]` の3つ固定です。共通Routerの最小能力選択と、この初期化プリセットを区別します。任意のprovider組合せを選ぶ個別rolloutの代替にはしません。
 
@@ -91,17 +91,17 @@ Serena等の終了0でも部分失敗の出力を検出します。CRG wrapper�
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 -W error::ResourceWarning -m unittest discover -s tests -v
-python3 -B aidev.py --help
-python3 -B aidev.py init --help
-python3 -B aidev.py doctor --help
-python3 -B install.py --help
+python3 -B src/aidev.py --help
+python3 -B src/aidev.py init --help
+python3 -B src/aidev.py doctor --help
+python3 -B src/install.py --help
 ```
 
 coreの20テストは一時Git repoとproviderのmockで、保全・再実行・鮮度・部分失敗・timeoutなどを確認します。実providerやinstaller更新経路の受入とは別です。provider版を変える場合は、probe/API・設定・実索引・実照会の互換性を対象環境で確認し、版の定数だけを書き換えて完了としません。
 
 ## Windowsと専用provider登録
 
-[/home/tn/projects/aidev/WINDOWS.md](WINDOWS.md) に操作契約を記載しています。`setup` は指定された専用Pythonと同じ環境のCLIを検査し、`--approve` がある場合だけaidev専用の登録を保存します。`--replace` で更新する際は元のbytesをbackupします。従来のUbuntu共通台帳やCodexの承認設定は変更しません。専用登録はmodule台帳の移植ではなく、aidev自身の起動契約です。
+[/home/tn/projects/aidev/docs/WINDOWS.md](WINDOWS.md) に操作契約を記載しています。`setup` は指定された専用Pythonと同じ環境のCLIを検査し、`--approve` がある場合だけaidev専用の登録を保存します。`--replace` で更新する際は元のbytesをbackupします。従来のUbuntu共通台帳やCodexの承認設定は変更しません。専用登録はmodule台帳の移植ではなく、aidev自身の起動契約です。
 
 登録はCLIとPythonのpath/hashとprovider版を確認します。providerの依存ファイル全体をhash固定する仕組みではありません。専用登録を使うrepoのMCP commandは登録済みexeの絶対パスです。Windowsではvenvの `Scripts/python.exe` をそのまま使い、実体解決によってvenvを失わないようにします。JSON/TOMLとprovider JSONの文字コードはUTF-8です。Windowsのjunction/reparse pointも設定・出力先のリンク拒否対象に含めます。
 
@@ -111,4 +111,4 @@ Windowsの子プロセスはJob Objectへの所属確認後にproviderを起動�
 
 `aidev.py`はTerrain commandの場合だけ専用moduleをimportします。`terrain_runtime.py`がpin・patch identity・download/build・approval/hash・behavior smoke、`terrain_provider.py`がrepo-local registry・fingerprint・AGENTS・backup・生成gate・doctor・read toolsを担当します。generic plugin frameworkは導入していません。
 
-Terrain doctorは既存doctorと異なりprovider processを一切起動せず、保存runtime recordと現在のhashをPythonで検査します。生成処理は既存directory lock/process group/Job Objectを再利用し、Terrain起動時のHOME副作用を一時HOMEへ隔離します。入力はGitのnonignored列挙と実内容hash、出力はpack/context/meta hashで照合します。具体的なschema・CLI・migrationと制限は [/home/tn/projects/aidev/TERRAIN.md](TERRAIN.md) を参照してください。
+Terrain doctorは既存doctorと異なりprovider processを一切起動せず、保存runtime recordと現在のhashをPythonで検査します。生成処理は既存directory lock/process group/Job Objectを再利用し、Terrain起動時のHOME副作用を一時HOMEへ隔離します。入力はGitのnonignored列挙と実内容hash、出力はpack/context/meta hashで照合します。具体的なschema・CLI・migrationと制限は [/home/tn/projects/aidev/docs/TERRAIN.md](TERRAIN.md) を参照してください。

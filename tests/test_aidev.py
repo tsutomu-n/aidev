@@ -11,7 +11,9 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-spec = importlib.util.spec_from_file_location("aidev", Path(__file__).parents[1] / "aidev.py")
+SOURCE = Path(__file__).parents[1] / "src"
+sys.path.insert(0, str(SOURCE))
+spec = importlib.util.spec_from_file_location("aidev", SOURCE / "aidev.py")
 aidev = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(aidev)
 

@@ -11,6 +11,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+sys.path.insert(0, str(Path(__file__).parents[1] / 'src'))
 import aidev
 import install
 import terrain_provider as provider
@@ -508,9 +509,9 @@ class TerrainTests(unittest.TestCase):
 
     def test_cli_help_and_invalid_flags(self):
         for args in (['terrain'], ['terrain', 'init'], ['terrain', 'refresh'], ['terrain', 'doctor'], ['terrain', 'tools', 'grep-pack']):
-            result = subprocess.run([sys.executable, '-B', str(install.SOURCE / 'aidev.py'), *args, '--help'], capture_output=True)
+            result = subprocess.run([sys.executable, '-B', str(install.source_file(install.SOURCE, 'aidev.py')), *args, '--help'], capture_output=True)
             self.assertEqual(result.returncode, 0, result.stderr)
-        result = subprocess.run([sys.executable, '-B', str(install.SOURCE / 'aidev.py'), 'terrain', 'init', '--allow-llm'], capture_output=True)
+        result = subprocess.run([sys.executable, '-B', str(install.source_file(install.SOURCE, 'aidev.py')), 'terrain', 'init', '--allow-llm'], capture_output=True)
         self.assertNotEqual(result.returncode, 0)
 
 

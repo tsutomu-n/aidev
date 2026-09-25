@@ -24,13 +24,13 @@ ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / 'WINDOWS_HANDOFF_MANIFEST.json'
 FILES = (
     'AGENTS.md', '.gitignore', '.github/workflows/tests.yml',
-    'aidev.py', 'install.py', 'platform_support.py', 'provider_probe.py', 'provider_build.py',
-    'README.md', 'STATUS.md', 'TECHNICAL.md', 'USER_GUIDE.md', 'WINDOWS.md', 'WINDOWS_HANDOFF.md',
+    'src/aidev.py', 'src/install.py', 'src/platform_support.py', 'src/provider_probe.py', 'src/provider_build.py',
+    'README.md', 'docs/STATUS.md', 'docs/TECHNICAL.md', 'docs/USER_GUIDE.md', 'docs/WINDOWS.md', 'WINDOWS_HANDOFF.md',
     'tests/test_aidev.py', 'tests/test_portability.py', 'tools/windows_handoff.py',
-    'terrain_runtime.py', 'terrain_provider.py', 'terrain-0.9.5-aidev.patch', 'TERRAIN.md',
+    'src/terrain_runtime.py', 'src/terrain_provider.py', 'src/terrain-0.9.5-aidev.patch', 'docs/TERRAIN.md',
     'tests/test_terrain.py', '.github/workflows/terrain.yml', 'tools/terrain_ci.py',
-    'context-qualification.json', 'tests/test_context_contract.py', 'tools/context_supervisor.py',
-    'codex-acp-1.11.0-context.patch', 'UBUNTU_ACCEPTANCE.md',
+    'src/context-qualification.json', 'tests/test_context_contract.py', 'tools/context_supervisor.py',
+    'src/codex-acp-1.11.0-context.patch', 'docs/UBUNTU_ACCEPTANCE.md',
 )
 
 
@@ -85,7 +85,7 @@ def verify(expected_head=None):
 
 def reproduce():
     # Import only this checkout's reviewed standard-library installer.
-    sys.path.insert(0, str(ROOT))
+    sys.path.insert(0, str(ROOT / 'src'))
     import install
     from platform_support import directory_lock
     results = []
@@ -99,7 +99,7 @@ def reproduce():
             source = folder / 'source'
             source.mkdir()
             for name in install.FILES:
-                shutil.copyfile(ROOT / name, source / name)
+                (source / name).write_bytes(install.bundle_bytes(install.SOURCE, name))
             target = folder / 'app'
             entry = target / 'bin/aidev.cmd'
             for name, value in [('SOURCE', source), ('TARGET', target), ('ENTRY', entry), ('WINDOWS', True)]:

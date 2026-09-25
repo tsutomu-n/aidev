@@ -12,6 +12,7 @@ import tomllib
 import unittest
 from unittest.mock import patch
 
+sys.path.insert(0, str(Path(__file__).parents[1] / 'src'))
 import aidev
 import install
 import platform_support as platform
@@ -32,9 +33,9 @@ class PortabilityTests(unittest.TestCase):
         code = 'from pathlib import Path; from platform_support import directory_lock; import sys\nwith directory_lock(Path(sys.argv[1])): pass'
         command = [sys.executable, '-B', '-c', code, str(self.root)]
         with platform.directory_lock(self.root):
-            result = subprocess.run(command, cwd=install.SOURCE, capture_output=True)
+            result = subprocess.run(command, cwd=Path(platform.__file__).parent, capture_output=True)
             self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(subprocess.run(command, cwd=install.SOURCE, capture_output=True).returncode, 0)
+        self.assertEqual(subprocess.run(command, cwd=Path(platform.__file__).parent, capture_output=True).returncode, 0)
         self.assertEqual(list(self.root.iterdir()), [])
 
     def test_timeout_kills_grandchild_even_if_parent_exits(self):
@@ -155,6 +156,16 @@ class FoundationTests(unittest.TestCase):
         self.assertEqual(next(self.config.parent.glob('foundation.backup-*.json')).read_bytes(), raw)
 
 
+class CheckoutBundleTests(unittest.TestCase):
+    def test_checkout_sources_stage_as_flat_release_with_working_doc_links(self):
+        with tempfile.TemporaryDirectory() as folder:
+            with patch.object(install, 'TARGET', Path(folder)):
+                release = install.stage_release(install.CHECKOUT_ROOT, install.FILES)
+                self.assertEqual((release / 'aidev.py').read_bytes(), (install.CHECKOUT_ROOT / 'src/aidev.py').read_bytes())
+                self.assertIn('](../src/aidev.py)', (install.CHECKOUT_ROOT / 'docs/TECHNICAL.md').read_text(encoding='utf-8'))
+                self.assertIn('](aidev.py)', (release / 'TECHNICAL.md').read_text(encoding='utf-8'))
+
+
 class InstallerTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix='aidev-install 日本語-')
@@ -163,7 +174,7 @@ class InstallerTests(unittest.TestCase):
         self.source = self.root / 'source'
         self.source.mkdir()
         for name in install.FILES:
-            shutil.copyfile(install.SOURCE / name, self.source / name)
+            (self.source / name).write_bytes(install.bundle_bytes(install.SOURCE, name))
         self.target = self.root / 'app'
         self.entry = self.target / 'bin/aidev.cmd' if platform.WINDOWS else self.root / 'bin/aidev'
         self.stack = self.enterContext(ExitStack())

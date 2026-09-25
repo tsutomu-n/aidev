@@ -1,10 +1,10 @@
 # aidev ジュニアSE向け操作マニュアル
 
-入口へ戻る：[/home/tn/projects/aidev/README.md](README.md)
+入口へ戻る：[/home/tn/projects/aidev/README.md](../README.md)
 
 ターミナルでコマンドを実行できる方が、導入から解析準備、日常の更新、障害の切り分けまで進めるための手順です。ソース0.3.0を基準にしています。
 
-Windows 11の導入・登録は [/home/tn/projects/aidev/WINDOWS.md](WINDOWS.md) を先に進めてください。以下のshell例はUbuntu向けです。
+Windows 11の導入・登録は [/home/tn/projects/aidev/docs/WINDOWS.md](WINDOWS.md) を先に進めてください。以下のshell例はUbuntu向けです。
 
 ## 目次
 
@@ -45,7 +45,7 @@ Windows 11の導入・登録は [/home/tn/projects/aidev/WINDOWS.md](WINDOWS.md)
 
 ### 2.1 前提を確認する
 
-管理者が共通基盤を導入・承認済みであることが前提です。未導入ならここで管理者に準備を依頼してください。既存共通基盤を使わない場合は、[/home/tn/projects/aidev/WINDOWS.md](WINDOWS.md) の `setup` 登録を使えます。Ubuntuの専用venvでは各 `bin/python` の絶対パスを指定します。
+管理者が共通基盤を導入・承認済みであることが前提です。未導入ならここで管理者に準備を依頼してください。既存共通基盤を使わない場合は、[/home/tn/projects/aidev/docs/WINDOWS.md](WINDOWS.md) の `setup` 登録を使えます。Ubuntuの専用venvでは各 `bin/python` の絶対パスを指定します。
 
 次は読取り確認です。どのフォルダーでも実行できます。
 
@@ -84,7 +84,7 @@ git clone --branch main --single-branch https://github.com/tsutomu-n/aidev.git /
 ```sh
 cd /home/tn/projects/aidev
 mkdir -p /home/tn/.local/bin /home/tn/.local/share
-python3 /home/tn/projects/aidev/install.py
+python3 /home/tn/projects/aidev/src/install.py
 /home/tn/.local/bin/aidev --version
 ```
 
@@ -104,20 +104,20 @@ aidev --version
 
 ```sh
 git -C /home/tn/projects/aidev status --short --branch
-python3 -B /home/tn/projects/aidev/aidev.py --version
+python3 -B /home/tn/projects/aidev/src/aidev.py --version
 /home/tn/.local/bin/aidev --version
 ```
 
 導入したいソースが揃ったら実行します。
 
 ```sh
-python3 /home/tn/projects/aidev/install.py --upgrade
+python3 /home/tn/projects/aidev/src/install.py --upgrade
 /home/tn/.local/bin/aidev --version
 ```
 
 管理対象の旧版だけを更新し、旧releaseは保持します。管理外のコマンドやインストール済みファイルの利用者変更があれば停止します。Gitでソースを更新しただけではインストール版は変わりません。
 
-Windows launcherは導入を実行した確認済みPythonの絶対パスを固定し、消失時に別Pythonへfallbackしません。導入/upgrade中の競合、利用者変更、所有記録のない旧partialは上書きせず停止します。installer所有の中断だけは同じsource・同じPythonで通常installを再実行して復旧できます。Windows実機での旧版upgrade受入は未実施です。Ubuntuの旧3ファイル配置からの通常更新と復旧fixtureは今回成功しました。検証範囲は [/home/tn/projects/aidev/STATUS.md](STATUS.md) を確認してください。
+Windows launcherは導入を実行した確認済みPythonの絶対パスを固定し、消失時に別Pythonへfallbackしません。導入/upgrade中の競合、利用者変更、所有記録のない旧partialは上書きせず停止します。installer所有の中断だけは同じsource・同じPythonで通常installを再実行して復旧できます。Windows実機での旧版upgrade受入は未実施です。Ubuntuの旧3ファイル配置からの通常更新と復旧fixtureは今回成功しました。検証範囲は [/home/tn/projects/aidev/docs/STATUS.md](STATUS.md) を確認してください。
 
 <a id="first-run"></a>
 ## 3. 対象リポジトリを初期化する
@@ -186,7 +186,7 @@ git diff
 
 `git diff` に新規の未追跡ファイルの内容は出ません。`git status --short` の `??` も確認し、該当ファイルをエディターで読みます。
 
-追加するMCP設定、解析設定、Git除外などの詳細は [/home/tn/projects/aidev/TECHNICAL.md](TECHNICAL.md) にあります。索引・ログ・バックアップはローカル管理です。aidevはcommit・pushをしません。設定をGitへ含めるかはチームで判断し、一括stageで元の作業を巻き込まないようにします。
+追加するMCP設定、解析設定、Git除外などの詳細は [/home/tn/projects/aidev/docs/TECHNICAL.md](TECHNICAL.md) にあります。索引・ログ・バックアップはローカル管理です。aidevはcommit・pushをしません。設定をGitへ含めるかはチームで判断し、一括stageで元の作業を巻き込まないようにします。
 
 <a id="codex-check"></a>
 ## 4. Codexで使えるか確認する
@@ -309,12 +309,12 @@ aidevのバージョン：
 Codexの実照会：未実施 / 成功 / 失敗（内容）
 ```
 
-providerの内部契約や保存先は [/home/tn/projects/aidev/TECHNICAL.md](TECHNICAL.md)、受入の未確認事項は [/home/tn/projects/aidev/STATUS.md](STATUS.md) を参照してください。
+providerの内部契約や保存先は [/home/tn/projects/aidev/docs/TECHNICAL.md](TECHNICAL.md)、受入の未確認事項は [/home/tn/projects/aidev/docs/STATUS.md](STATUS.md) を参照してください。
 
-入口へ戻る：[/home/tn/projects/aidev/README.md](README.md)
+入口へ戻る：[/home/tn/projects/aidev/README.md](../README.md)
 
 ## Terrainを任意導入する
 
 Terrainは3providerと独立したknowledge/navigation layerです。正式runtime検証対象はUbuntu 24.04 x86_64で、WindowsのTerrain操作は未サポートです。runtimeを明示登録・build後、対象repoで `aidev terrain init --dry-run` → `aidev terrain init` → `aidev terrain doctor` を実行します。コード変更後は `aidev terrain refresh`。Codex ACPによるLLM生成が必要な場合だけinit/refreshへ `--build-context` を付けます。
 
-read tools、tracked/ignored、既存assetsのmigration、runtime登録・rebuildは [/home/tn/projects/aidev/TERRAIN.md](TERRAIN.md) にまとめています。
+read tools、tracked/ignored、既存assetsのmigration、runtime登録・rebuildは [/home/tn/projects/aidev/docs/TERRAIN.md](TERRAIN.md) にまとめています。

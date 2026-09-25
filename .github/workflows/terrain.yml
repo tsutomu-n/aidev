@@ -1,9 +1,9 @@
 name: Terrain runtime contract
 on:
   push:
-    paths: ['aidev.py', 'platform_support.py', 'install.py', 'terrain_*.py', 'terrain-0.9.5-aidev.patch', 'tests/test_terrain.py', 'tools/terrain_ci.py', '.github/workflows/terrain.yml', '.github/workflows/tests.yml']
+    paths: ['src/**', 'tests/test_terrain.py', 'tools/terrain_ci.py', '.github/workflows/terrain.yml', '.github/workflows/tests.yml']
   pull_request:
-    paths: ['aidev.py', 'platform_support.py', 'install.py', 'terrain_*.py', 'terrain-0.9.5-aidev.patch', 'tests/test_terrain.py', 'tools/terrain_ci.py', '.github/workflows/terrain.yml', '.github/workflows/tests.yml']
+    paths: ['src/**', 'tests/test_terrain.py', 'tools/terrain_ci.py', '.github/workflows/terrain.yml', '.github/workflows/tests.yml']
   workflow_dispatch:
 permissions:
   contents: read

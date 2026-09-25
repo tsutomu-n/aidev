@@ -1,6 +1,6 @@
 # 実装と検証状態
 
-入口：[/home/tn/projects/aidev/README.md](README.md) ／ 操作手順：[/home/tn/projects/aidev/USER_GUIDE.md](USER_GUIDE.md)
+入口：[/home/tn/projects/aidev/README.md](../README.md) ／ 操作手順：[/home/tn/projects/aidev/docs/USER_GUIDE.md](USER_GUIDE.md)
 
 ## Ubuntu通常環境への導入・受入
 
@@ -116,7 +116,7 @@ coreの修正版は128成功・3失敗、integration testsは7成功。agentは1
 
 生成gateはfixtureで確認済みで、live LLM生成は別受入です。context本文の事実性・網羅性は機械validationの保証外です。legacy migrationでdirty入力のlineageを証明できない場合やAGENTSを新たに変更する場合はpackを更新し、contextをstaleとして保持します。migrationだけではLLMを呼びません。submodule、symlink/reparse/hardlink入力、unignoredの代表的秘密ファイル名は初版では停止します。任意の秘密文字列のredactionは保証しません。
 
-当時は4-matrix CIとUbuntu/Windows Terrain runtime CIをREADY_FOR_MAINの条件とし、live ACPを別受入としていました。この旧gateは今回のUbuntu scopeへ置き換えられています。通常利用環境への導入は別の明示操作です。操作・契約は [/home/tn/projects/aidev/TERRAIN.md](TERRAIN.md) を参照してください。
+当時は4-matrix CIとUbuntu/Windows Terrain runtime CIをREADY_FOR_MAINの条件とし、live ACPを別受入としていました。この旧gateは今回のUbuntu scopeへ置き換えられています。通常利用環境への導入は別の明示操作です。操作・契約は [/home/tn/projects/aidev/docs/TERRAIN.md](TERRAIN.md) を参照してください。
 
 ## 0.2.0 Windows回帰の履歴
 
@@ -143,7 +143,7 @@ Windows側の作業要求と手順は、ソースに含む [/home/tn/projects/ai
 
 W-02/W-03の再現ツールの記録はUbuntu上でWindowsのファイル処理分岐を用いたものです。今回のWindows CIでは実OS上のfixture回帰も成功しましたが、Windows 11受入完了を意味しません。
 
-Windowsの導入・更新テストでは、成功時にも既存の `Parameter format not correct - code` が出力されています。[/home/tn/projects/aidev/install.py](https://github.com/tsutomu-n/aidev/blob/feat/terrain-integration/install.py) の `windows_launcher()` にある `chcp` 出力の分割と復元処理に由来すると考えられ、元のcode pageの復元成功は未確認です。今回のfixture修正ではlauncherを変更しておらず、起動Python固定の成功とこの残課題を区別します。
+Windowsの導入・更新テストでは、成功時にも既存の `Parameter format not correct - code` が出力されています。[/home/tn/projects/aidev/src/install.py](https://github.com/tsutomu-n/aidev/blob/feat/terrain-integration/install.py) の `windows_launcher()` にある `chcp` 出力の分割と復元処理に由来すると考えられ、元のcode pageの復元成功は未確認です。今回のfixture修正ではlauncherを変更しておらず、起動Python固定の成功とこの残課題を区別します。
 
 ## 引き継ぎの補助
 
