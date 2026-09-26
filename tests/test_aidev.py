@@ -104,6 +104,81 @@ class InitTests(unittest.TestCase):
             self.assertEqual(calls, ["serena", "graphify", "crg"])
             self.assertEqual(snapshot(self.root), before)
 
+    def test_provider_records_reuse_and_stale_input(self):
+        self.write("code.py", "def answer(): return 42\n")
+        build, _ = self.fake_build()
+        with build:
+            aidev.initialize(self.root)
+            saved = aidev.state_read(self.root)["index_metadata"]
+            self.assertEqual(set(saved), set(aidev.PROVIDERS))
+            for name, record in saved.items():
+                self.assertIn("+00:00", record["built_at"])
+                self.assertEqual(len(record["snapshot_id"]), 64)
+                self.assertEqual(len(record["artifact_sha256"]), 64)
+                self.assertEqual(record["provider_version"], aidev.PROVIDERS[name][1])
+            before = snapshot(self.root)
+            report = aidev.doctor(self.root)
+            self.assertEqual(report["status"], "LOCAL_READY")
+            self.assertEqual({name: report["providers"][name]["status"] for name in aidev.PROVIDERS},
+                             {name: "READY" for name in aidev.PROVIDERS})
+            self.assertEqual(report["providers"]["terrain"]["status"], "NOT_INSTALLED")
+            self.assertEqual(snapshot(self.root), before)
+            aidev.initialize(self.root)
+            self.assertEqual(aidev.state_read(self.root)["index_metadata"], saved)
+            legacy = aidev.state_read(self.root)
+            legacy.pop("index_metadata")
+            aidev.atomic(self.root / ".aidev/state.json", aidev.js(legacy).encode())
+            self.assertEqual(aidev.doctor(self.root)["providers"]["serena"]["built_at"], None)
+            self.assertEqual(aidev.doctor(self.root)["status"], "LOCAL_READY")
+            self.write("code.py", "def answer(): return 43\n")
+            stale = aidev.doctor(self.root)
+            self.assertEqual(stale["status"], "NEEDS_INIT")
+            self.assertTrue(all(stale["providers"][name]["status"] == "NEEDS_INIT" for name in aidev.PROVIDERS))
+            aidev.initialize(self.root)
+            self.assertNotEqual(aidev.state_read(self.root)["index_metadata"]["graphify"]["snapshot_id"],
+                                saved["graphify"]["snapshot_id"])
+
+    def test_crg_native_head_and_optional_terrain_are_independent(self):
+        self.write("code.py", "def answer(): return 42\n")
+        (self.root / ".terrain").mkdir()
+        self.write(".terrain/aidev.json", "{}")
+        build, _ = self.fake_build()
+        with build:
+            aidev.initialize(self.root)
+        import terrain_provider
+        with patch.object(terrain_provider, "doctor", return_value={"status": "TERRAIN_INVALID", "runtime": "FAIL", "pack": "FAIL", "context": "NOT_BUILT", "source_fresh": False, "issues": ["fixture"]}):
+            report = aidev.doctor(self.root)
+        self.assertEqual(report["status"], "LOCAL_READY")
+        self.assertEqual(report["providers"]["terrain"]["status"], "TERRAIN_INVALID")
+        db = self.root / ".code-review-graph/graph.db"
+        with closing(sqlite3.connect(db)) as conn:
+            conn.execute("CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT)")
+            conn.execute("INSERT INTO metadata VALUES ('git_head_sha', 'old-head')")
+            conn.commit()
+        report = aidev.doctor(self.root)
+        self.assertEqual(report["status"], "NEEDS_INIT")
+        self.assertEqual(report["providers"]["crg"]["status"], "NEEDS_INIT")
+        self.assertEqual(report["providers"]["serena"]["status"], "READY")
+        with patch.object(terrain_provider, "doctor", return_value={"status": "TERRAIN_INVALID", "runtime": "FAIL", "pack": "FAIL", "context": "NOT_BUILT", "source_fresh": False, "issues": ["fixture"]}):
+            report = aidev.doctor(self.root)
+        self.assertEqual(report["providers"]["terrain"]["status"], "TERRAIN_INVALID")
+        self.assertEqual(report["providers"]["serena"]["status"], "READY")
+
+    def test_valid_but_changed_serena_cache_is_stale(self):
+        self.write("code.py", "def answer(): return 42\n")
+        build, calls = self.fake_build()
+        with build:
+            aidev.initialize(self.root)
+            cache = self.root / ".serena/cache/python/document_symbols.pkl"
+            cache.write_bytes(pickle.dumps({"other": "valid pickle"}))
+            report = aidev.doctor(self.root)
+            self.assertEqual(report["status"], "NEEDS_INIT")
+            self.assertEqual(report["providers"]["serena"]["status"], "NEEDS_INIT")
+            self.assertEqual(report["providers"]["graphify"]["status"], "READY")
+            aidev.initialize(self.root)
+            self.assertEqual(calls.count("serena"), 2)
+            self.assertEqual(aidev.doctor(self.root)["status"], "LOCAL_READY")
+
     def test_conflict_is_detected_before_any_write(self):
         self.write(".codex/config.toml", '[mcp_servers.serena]\ncommand="custom"\n')
         before = snapshot(self.root)
@@ -119,6 +194,17 @@ class InitTests(unittest.TestCase):
         self.assertTrue((self.root / ".codex/config.toml").read_text().startswith(text))
         self.assertEqual((Path(result["backup"]) / ".codex/config.toml").read_text(), text)
         self.assertTrue((self.root / ".gitignore").read_text().startswith("# existing\nmy-output/\n"))
+
+    def test_managed_ignore_upgrade_removes_duplicate_blocks_only(self):
+        old = b"# user\n\n# aidev: local analysis\none\n\n# aidev: local analysis\none\ntwo\n"
+        updated = aidev.add_lines(old, ["one", "two", "three"]).decode()
+        self.assertTrue(updated.startswith("# user\n\n"))
+        self.assertEqual(updated.count("# aidev: local analysis"), 1)
+        self.assertEqual(updated.count("one\n"), 1)
+        self.assertTrue(updated.endswith("one\ntwo\nthree\n"))
+        custom = b"# user\n# aidev: local analysis\ncustom\n"
+        preserved = aidev.add_lines(custom, ["one"])
+        self.assertTrue(preserved.startswith(custom))
 
     def test_code_guidance_preserves_user_rules_and_is_idempotent(self):
         original = "# User rules\nKeep this instruction.\n"

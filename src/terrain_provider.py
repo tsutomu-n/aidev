@@ -11,7 +11,7 @@ from pathlib import Path, PurePosixPath
 import re
 import time
 
-from aidev import Problem, agents_guidance_file, atomic, digest, git, js, lock, read, repo_root, safe_path
+from aidev import Problem, agents_guidance_file, atomic, current_head, digest, git, js, lock, read, repo_root, safe_path
 import terrain_runtime as runtime
 
 CONFIG = ".terrain/aidev.json"
@@ -29,9 +29,9 @@ GUIDANCE = '''<!-- aidev:terrain:start -->
 
 Terrainはderived navigation/index layerです。Source of Truthはcode/tests/schemas/config/lockfiles/CI/CLI helpです。
 known-fileの小修正でTerrainを必須にしません。場所が不明な横断調査やarchitecture・multi-moduleの候補探しでは、Terrain packを最初の候補探索に使います。
-`aidev terrain doctor`で状態を確認します。packが利用可能なら
+`aidev doctor --json`でTerrain packの状態を確認します。packが利用可能なら
 `aidev terrain tools grep-pack --pattern "語句"` → `aidev terrain tools read-pack-file --file PATH`で候補を絞ります。
-`aidev terrain tools read-context`はcontextが生成済みで新しい場合だけ使います。packが古い場合はrefreshが必要です。
+`aidev terrain tools read-context`はcontextが生成済みで新しい場合だけ使います。packが古い場合は、並行編集・設定衝突がないときに`aidev terrain init --dry-run`で予定を確認し、既存導入なら`aidev terrain refresh`を一度実行します。失敗・再失効時は繰り返さず実ソースで調べます。`--build-context`は明示依頼時だけです。
 重要な主張と編集対象は必ずlive source/tests/schemasで確認します。repomix全文をcontextへ読みません。
 raw Terrain registry操作よりaidev wrapperを使います。context生成は明示的な`--build-context`時だけです。
 <!-- aidev:terrain:end -->'''
@@ -406,12 +406,24 @@ def initialize(root, dry_run=False, build_context=False, slug=None, refresh=Fals
             if not registry_check(root, slug):
                 raise Problem("registry isolation failure")
             hashes = output_hashes(root)
+            completed_at = datetime.now(timezone.utc).isoformat()
+            head = current_head(root)
+            pack_identity = ["aidev-terrain-pack-v1", current, identity, slug, hashes[PACK], hashes[PACK_META]]
+            context_identity = (["aidev-terrain-context-v1", current, identity, POLICY, hashes[CONTEXT], hashes[CONTEXT_META]]
+                                if context_current and hashes[CONTEXT] else None)
             state = {"schema_version": 1, "repo_path": str(root), "slug": slug, "runtime_identity": identity,
                      "source_fingerprint": current, "pack_input_fingerprint": current,
                      "context_input_fingerprint": current if context_current else (prior or {}).get("context_input_fingerprint"),
                      "pack_output_hash": hashes[PACK], "pack_meta_hash": hashes[PACK_META], "context_output_hash": hashes[CONTEXT], "context_meta_hash": hashes[CONTEXT_META],
                      "generation_policy": POLICY, "context_stale": bool(hashes[CONTEXT] and not context_current), "agents_guidance": agents,
-                     "last_successful_run": datetime.now(timezone.utc).isoformat(), "last_operation": "refresh" if refresh else "init"}
+                     "last_successful_run": completed_at, "last_operation": "refresh" if refresh else "init",
+                     "pack_built_at": (prior or {}).get("pack_built_at") if reused else completed_at,
+                     "pack_git_head": (prior or {}).get("pack_git_head") if reused else head,
+                     "pack_snapshot_id": digest(js(pack_identity).encode()),
+                     "context_built_at": completed_at if built else (prior or {}).get("context_built_at"),
+                     "context_git_head": head if built else (prior or {}).get("context_git_head"),
+                     "context_snapshot_id": (digest(js(context_identity).encode()) if context_identity else
+                                             (prior or {}).get("context_snapshot_id") if hashes[CONTEXT] else None)}
             atomic(safe_path(root, STATE), js(state).encode())
             return {"status": "TERRAIN_READY" if context_current else ("TERRAIN_NEEDS_CONTEXT_REFRESH" if hashes[CONTEXT] else "TERRAIN_READY_CONTEXT_NOT_BUILT"), "indexes": "reused" if reused else "built", "context": "built" if built else ("reused" if context_current else "stale" if hashes[CONTEXT] else "not-built"), "migration": migration, "agents_guidance": agents, "backup": str(root / ".aidev/terrain/backups" / run_id)}
         except (Problem, OSError, ValueError):
@@ -463,6 +475,36 @@ def doctor(root):
     except (Problem, OSError, ValueError, KeyError, TypeError) as exc:
         report["issues"].append(str(exc))
     return report
+
+
+def doctor_summary(root, report):
+    try:
+        state = load_json(root, STATE, optional=True) or {}
+    except (Problem, OSError, ValueError, KeyError, TypeError):
+        state = {}
+    status = report["status"]
+    next_command = None
+    if status == "TERRAIN_NEEDS_REFRESH":
+        next_command = "aidev terrain refresh"
+    elif status == "TERRAIN_RUNTIME_MISSING":
+        next_command = "aidev terrain setup --help"
+    elif status == "TERRAIN_INVALID":
+        next_command = "aidev terrain doctor --json"
+    elif status == "TERRAIN_NEEDS_CONTEXT_REFRESH":
+        next_command = "aidev terrain refresh --build-context（明示依頼時のみ）"
+    pack_status = "STALE" if status == "TERRAIN_NEEDS_REFRESH" and report["pack"] == "PASS" else report["pack"]
+    context_status = ("STALE" if report["context"] == "PASS" and status in ("TERRAIN_NEEDS_REFRESH", "TERRAIN_NEEDS_CONTEXT_REFRESH")
+                      else report["context"])
+    return {"status": status, "reasons": report.get("issues", []), "runtime": report["runtime"],
+            "pack": {"status": pack_status, "source_fresh": report["source_fresh"],
+                     "built_at": state.get("pack_built_at"), "build_git_head": state.get("pack_git_head"),
+                     "input_fingerprint": state.get("pack_input_fingerprint"),
+                     "artifact_sha256": state.get("pack_output_hash"), "snapshot_id": state.get("pack_snapshot_id")},
+            "context": {"status": context_status, "built_at": state.get("context_built_at"),
+                        "build_git_head": state.get("context_git_head"),
+                        "input_fingerprint": state.get("context_input_fingerprint"),
+                        "artifact_sha256": state.get("context_output_hash"),
+                        "snapshot_id": state.get("context_snapshot_id")}, "next": next_command}
 
 
 def read_tool(root, args):

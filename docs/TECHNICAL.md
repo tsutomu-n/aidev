@@ -68,7 +68,9 @@ JSONとして書くSerena設定はYAMLとしても読める形式です。既存
 
 GraphifyはJSONのnodes配列とファイルhash、CRGはread-only immutable SQLiteでquick_check・nodes/edgesの論理内容を確認します。CRGの `updated_at` は論理hashから除外します。未checkpointの非空WALがあれば停止します。Serenaは言語ごとの2つのpickleをopcodeとして解析し、末尾STOPまでの構造を確認します。pickleを実行しません。この検査は全symbolや全参照の意味的な網羅性の保証ではありません。
 
-`doctor` はproviderの版照会とprobeを実行しますが、解析server・index buildは起動しません。repoへの書込みなしで、state、設定、fingerprint、成果物を照合します。initの排他ロックは取らず、別プロセスによるその後の変更を保証しません。
+成功したcore buildはprovider別にUTC構築完了日時、Git HEAD、入力fingerprint、provider版、成果物hash、`snapshot_id` をstate schema 1の追加フィールドへ記録します。Serenaはpickleを実行せずraw bytesをhash化し、Graphifyはgraph.json、CRGはnodes/edgesの論理hashを使います。`snapshot_id` はprovider名・版・入力fingerprint・成果物hashのSHA-256で、日時とHEADを含みません。再利用時は構築記録を更新しません。旧stateに記録がない場合、日時・IDは不明とし、次の実buildで埋めます。CRGのDB自身に構築時HEADがあれば現在HEADと照合します。Terrainの設定・生成物はcoreの解析対象から除きます。
+
+`doctor` はproviderの版照会とprobeを実行しますが、解析server・index buildは起動しません。repoへの書込みなしで、state、設定、fingerprint、成果物を照合します。JSONの既存トップレベル判定を保ち、`providers` に各状態と構築記録、`checked_at` に診断時刻を追加します。任意導入済みTerrainはread-only診断を併記し、その異常を3providerの終了コードへ合算しません。initの排他ロックは取らず、別プロセスによるその後の変更を保証しません。
 
 ## 失敗処理と外部作用
 

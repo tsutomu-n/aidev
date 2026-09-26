@@ -2,6 +2,14 @@
 
 入口：[/home/tn/projects/aidev/README.md](../README.md) ／ 操作手順：[/home/tn/projects/aidev/docs/USER_GUIDE.md](USER_GUIDE.md)
 
+## 2026-09-26 索引の構築記録と統合診断
+
+`aidev doctor --json` にSerena・Graphify・CRG・任意導入のTerrainを別々に表示し、診断時刻、構築成功日時、構築時HEAD、入力fingerprint、成果物hash、`snapshot_id` を追加しました。旧stateの日時・IDは不明のまま扱います。Serenaの有効なpickleでも内容hashが変われば更新を要求し、CRG DB自身のHEAD記録も照合します。Terrainのpackとcontextは別記録です。生成案内は、必要な索引だけを確認し、条件が安全なときにdry-run後のローカル更新を同じ入力へ一度試すよう変更しました。contextのLLM生成は明示依頼時だけです。
+
+Ubuntu / Python 3.14.3で全105 testsは103成功・Windows専用2件skip。doctorの読取り専用、旧stateの互換、再利用時の構築日時維持、入力・Serena成果物・CRG HEADの不一致、Terrain不調と3providerの独立、除外設定の管理ブロック保全を確認しました。`git diff --check` もPASS。通常導入版のaidev/terrain source hashはcheckoutと一致しました。Windows実機受入は未実施です。
+
+JustPassのHEAD `c6df21b2bd9e01f53569eeae5bfd93dad0c8f1e8` でdry-run後にcoreとTerrainを再構築し、最終doctorは3provider `READY`、Terrain pack `PASS` / source_fresh true / context `NOT_BUILT`。追跡差分は `AGENTS.md` と2つの解析除外設定だけで、各除外設定の管理ブロックは1個です。新規Codex CLIセッションではツール名なしの調査が `aidev doctor --json`、Terrain pack、Graphify照会、実ソース照合、回答完了まで進み、ソース・索引の書込みはありませんでした。古い索引からの自動更新経路はfixtureと生成案内の検証であり、実JustPassを意図的に古くするlive試験はしていません。commit・pushは未実施です。
+
 ## 2026-09-26 Codexの作業別コード調査導線
 
 ### JustPass更新停止後の再受入（Ubuntu）

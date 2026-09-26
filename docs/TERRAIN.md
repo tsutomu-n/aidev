@@ -92,6 +92,8 @@ doctorはPythonとread-only Git plumbingだけを使用し、Terrain/ACPを起�
 
 ready/PLANはexit 0、doctorの更新必要・不正はexit 1、実行エラーはexit 2。JSONのruntime/pack/context/source_fresh/writesを分離します。Terrain freshnessを正確率とはみなしません。
 
+新しいstateはpackとcontextそれぞれの構築成功日時・構築時HEAD・入力fingerprint・成果物hash・`snapshot_id` を保持します。packを再利用してcontextだけ生成した場合、packの構築日時は維持します。旧stateで日時が不明なら推定しません。`last_successful_run` は操作成功時刻であり、packの構築日時とは別です。導入済みrepoでは `aidev doctor --json` の `providers.terrain` からもpack/contextの状態を確認できます。
+
 contextは4個以上のH2・500文字以上というupstream最小構造、実H2数とsection_count、Unicode文字数とchar_count、repo-relative metadataとabsolute checkout pathの不在を確認します。7節固定による判定ではありません。自然言語の事実性や網羅性を保証しません。
 
 ## 探索入口

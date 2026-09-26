@@ -2,6 +2,8 @@
 
 `aidev init` は3providerの作業別案内をrepoルートの実効指示ファイル（非空の `AGENTS.override.md`、なければ `AGENTS.md`）に追記します。この案内のfixture検証はUbuntuで実施し、Windows Codex実機の自動選択は未確認です。
 
+`doctor --json` のprovider別状態と構築記録はUbuntu fixtureで検証します。Windows実機での診断・通常導入・Codex接続は、この記録から推定しないでください。
+
 context専用ACP修正は固定Linux候補の受入後、Ubuntu通常環境への依存移設・導入・実LLM受入も完了しました。旧3ファイル移行修正と92件のPython全suite（Windows専用2件skip）はUbuntuの結果です。Windows Terrainの受入・通常導入は未実施で、元の実LLM失敗やWindows CIの履歴を成功へ書き換えません。固定qualificationの起動拒否を手編集で迂回しないでください。受領manifestの一致も実機検証の代替ではありません。
 
 現行sourceは0.3.0（Terrain任意統合）です。下記0.2.0のWindows回帰履歴を保持しています。WindowsではTerrain runtimeは未サポートであり、この文書の実機受入対象は既存3providerとaidev coreです。Ubuntu Terrainの受入・現在の判定は [/home/tn/projects/aidev/docs/TERRAIN.md](TERRAIN.md) と [/home/tn/projects/aidev/docs/STATUS.md](STATUS.md) を確認してください。旧CI成功は0.3.0のWindows build/ACP受入の証拠ではありません。

@@ -66,7 +66,7 @@ aidev doctor
 
 `init` は設定と対象リポジトリのルートの実効指示ファイルに短い使い分けを保存し、Serena → Graphify → CRGの順に解析します。非空の `AGENTS.override.md` があればそこへ、なければ `AGENTS.md` へ保存します。既存の記述や設定を変更する場合は、変更前のテキストをバックアップします。`doctor` は設定と索引の状態を**書き換えずに**確認します。指示ファイルが長い場合はCodex側の読込み上限による切詰めがあり得るため、新規セッションで実際の利用を確認してください。
 
-`doctor` が `LOCAL_READY` と表示すれば、ローカルの準備は完了です。`init` の結果が `WAITING_FOR_CODE` なら、対応するコードの追加を待っています。それ以外の表示は [「表示の読み方」](#results) を見てください。`LOCAL_READY` だけではCodexからの接続成功までは確認できません。
+`doctor` が `LOCAL_READY` と表示すれば、3providerのローカル準備は完了です。任意導入のTerrainは別行で確認してください。`init` の結果が `WAITING_FOR_CODE` なら、対応するコードの追加を待っています。それ以外の表示は [「表示の読み方」](#results) を見てください。`LOCAL_READY` だけではCodexからの接続成功までは確認できません。
 
 解析の時間上限は各providerの処理ごとに既定で600秒です。全体の所要時間の上限ではありません。時間が足りない場合は、ログを確認してから [時間切れの対応](#troubleshooting) に進みます。
 
@@ -115,7 +115,7 @@ Codexの**入力欄**で `/mcp` を入力し、SerenaとCRGが使えるか確認
 <a id="daily"></a>
 ## 普段の使い方
 
-作業開始時やコード編集・ブランチ切替の後は、対象リポジトリで `aidev doctor` を実行します。`NEEDS_INIT` が出たら理由を読み、コードや設定が変わったために更新が必要なら `aidev init`、続けて `aidev doctor` を実行します。新しいcloneやworktreeでは、その作業先で初回手順から始めます。
+作業開始時やコード編集・ブランチ切替の後は、対象リポジトリで `aidev doctor` を実行します。必要な能力の行が更新を求めたら、並行編集や設定衝突がないことを確認し、3providerは `aidev init --dry-run` → `aidev init`、既存Terrainは `aidev terrain init --dry-run` → `aidev terrain refresh` と進めます。各更新は同じ入力に対して一度試し、失敗や再失効時は実ソースで調べます。Terrain contextの生成は明示依頼時だけです。新しいcloneやworktreeでは、その作業先で初回手順から始めます。
 
 aidevは変更を自動監視しません。索引の更新が必要なときは、3providerを順に処理します。
 
@@ -132,7 +132,7 @@ aidevは変更を自動監視しません。索引の更新が必要なときは
 | `FAILED` / `ERROR` | エラー本文と、表示されたログの場所を確認する |
 | `codex_mcp: UNVERIFIED` | Codex接続は未検査。新しいセッションで実照会する |
 
-`aidev doctor --json` は機械処理向けの結果を表示します。終了コードは、0が成功、1がdoctorの要初期化、2がエラーです。コードのないリポジトリで `init` が `WAITING_FOR_CODE` を返しても終了0になり得ます。`init --json` はありません。
+`aidev doctor --json` は機械処理向けの結果を表示します。`providers` に4経路それぞれの状態と必要な次のコマンドが入り、構築記録のある索引には日時・構築時HEAD・成果物IDも表示します。古いstateの日時は不明のままです。日時は鮮度の判定材料ではなく、`READY` は解析の網羅性やMCP接続の保証でもありません。終了コードは、3providerが成功なら0、要初期化なら1、エラーなら2です。任意のTerrainが未導入・不正でも3providerの終了コードは変えません。コードのないリポジトリで `init` が `WAITING_FOR_CODE` を返しても終了0になり得ます。`init --json` はありません。
 
 <a id="troubleshooting"></a>
 ## 困ったとき

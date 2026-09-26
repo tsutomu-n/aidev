@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from contextlib import closing, contextmanager
+from datetime import datetime, timezone
 import fnmatch
 import hashlib
 import json
@@ -28,7 +29,7 @@ PROVIDERS = {"serena": ("serena", "1.7.0"), "graphify": ("graphify", "0.9.55"), 
 CAPS = {"symbol_semantics": ["serena"], "architecture_relationships": ["graphify"], "change_impact": ["crg"]}
 LANGUAGES = {".py": "python", ".pyi": "python", ".ts": "typescript", ".tsx": "typescript", ".mts": "typescript", ".cts": "typescript", ".js": "typescript", ".jsx": "typescript", ".mjs": "typescript", ".cjs": "typescript"}
 CODE_EXTENSIONS = set(LANGUAGES) | {".go", ".rs", ".java", ".c", ".cpp", ".h", ".cs", ".rb", ".php", ".swift", ".kt", ".vue", ".svelte"}
-EXCLUDES = [".git/", ".aidev/", ".codex/", ".serena/", "graphify-out/", ".code-review-graph/", "node_modules/", ".venv/", "venv/", "__pycache__/", ".next/", "dist/", "build/", "vendor/", ".env", ".env.*", "*.pem", "*.key", "credentials.*", "secrets.*"]
+EXCLUDES = [".git/", ".aidev/", ".codex/", ".serena/", ".terrain/", "graphify-out/", ".code-review-graph/", "node_modules/", ".venv/", "venv/", "__pycache__/", ".next/", "dist/", "build/", "vendor/", ".env", ".env.*", "*.pem", "*.key", "credentials.*", "secrets.*"]
 GIT_EXCLUDES = ["/.aidev/", "/graphify-out/", "/.code-review-graph/", "/.serena/runtime/", "/.serena/cache/", "/.serena/memories/", "/.serena/logs/", "/.serena/project.local.yml"]
 SERENA_TOOLS = ["initial_instructions", "activate_project", "get_current_config", "get_symbols_overview", "find_symbol", "find_referencing_symbols", "find_implementations", "find_declaration", "get_diagnostics_for_file", "list_memories", "read_memory", "onboarding", "write_memory", "replace_symbol_body", "rename_symbol", "insert_after_symbol", "insert_before_symbol"]
 CRG_TOOLS = ["list_graph_stats_tool", "query_graph_tool", "get_impact_radius_tool", "get_review_context_tool", "get_minimal_context_tool", "detect_changes_tool", "build_or_update_graph_tool"]
@@ -43,7 +44,8 @@ CODE_GUIDANCE = '''<!-- aidev:code-intelligence:start -->
 - モジュールやコード間の構造・関係: Graphify CLIの索引照会。
 - 差分の影響範囲・レビュー対象・テスト候補: CRG MCPの影響照会。比較baseを明示します。
 
-重要な判断の前やコード・branchの変更後は`aidev doctor`で索引の鮮度を確認します。`LOCAL_READY`はMCP接続の証明ではありません。
+索引が必要な調査では`aidev doctor --json`で対応能力の状態を確認します。コード・branchの変更後や重要な判断の前にも確認します。`LOCAL_READY`はMCP接続や解析の網羅性の証明ではありません。
+入力変更で更新が必要なら、現在のRepoに並行編集・設定衝突がない場合に限り、`aidev init --dry-run`で予定を確認して`aidev init`を一度実行します。失敗・再失効時は更新を繰り返さず実ソースで調べ、索引が使えなかったことを伝えます。
 能力が利用できない場合は実ソースで調べ、不足を伝えます。索引の候補と重要な主張・編集対象は実ソース/tests/schemasで確認します。
 <!-- aidev:code-intelligence:end -->'''
 
@@ -58,6 +60,17 @@ def js(value):
 
 def digest(data):
     return hashlib.sha256(data).hexdigest()
+
+
+def utc_now():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def current_head(root):
+    try:
+        return git(root, "rev-parse", "HEAD").strip()
+    except Problem:
+        return None
 
 
 def env_for(root):
@@ -357,8 +370,13 @@ def add_lines(old, lines):
     text = (old or b"").decode()
     # The final rule wins: earlier exclusions can be cancelled by a later '!'.
     block = "# aidev: local analysis\n" + "\n".join(lines) + "\n"
-    if text.endswith(block):
+    marker = "# aidev: local analysis\n"
+    if text.endswith(block) and text.count(marker) == 1:
         return old
+    if marker in text:
+        prefix, *managed = text.split(marker)
+        if all(part and all(line in lines for line in part.splitlines() if line) for part in managed):
+            return (prefix + block).encode()
     return (text + ("\n" if text and not text.endswith("\n") else "") + "\n" + block).encode()
 
 
@@ -576,6 +594,56 @@ def artifacts(root, languages=()):
     return {"graphify_nodes": len(nodes), "crg_nodes": count, "graphify_sha256": digest(graph.read_bytes()), "crg_sha256": graph_hash.hexdigest(), "serena_cache": serena_caches(root, languages)}
 
 
+def serena_artifact_hash(root, languages):
+    h = hashlib.sha256()
+    for language in sorted(languages):
+        for name in ("document_symbols.pkl", "raw_document_symbols.pkl"):
+            relative = f".serena/cache/{language}/{name}"
+            raw = safe_path(root, relative).read_bytes()
+            h.update(relative.encode() + b"\0" + raw + b"\0")
+    return h.hexdigest()
+
+
+def artifact_hashes(root, languages, result):
+    return {"serena": serena_artifact_hash(root, languages), "graphify": result["graphify_sha256"], "crg": result["crg_sha256"]}
+
+
+def crg_build_head(root):
+    db = safe_path(root, ".code-review-graph/graph.db")
+    if not db.is_file():
+        return None
+    with closing(sqlite3.connect(db.as_uri() + "?mode=ro&immutable=1", uri=True)) as conn:
+        table = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='metadata'").fetchone()
+        if not table:
+            return None  # Older or fixture graphs have no native HEAD record.
+        row = conn.execute("SELECT value FROM metadata WHERE key='git_head_sha'").fetchone()
+        return row[0] if row else None
+
+
+def index_metadata(root, source_fingerprint, languages, result, completed):
+    hashes = artifact_hashes(root, languages, result)
+    head = current_head(root)
+    records = {}
+    for name in PROVIDERS:
+        version = PROVIDERS[name][1]
+        artifact_hash = hashes[name]
+        identity = ["aidev-index-v1", name, version, source_fingerprint, artifact_hash]
+        records[name] = {"built_at": completed[name], "git_head": head, "input_fingerprint": source_fingerprint,
+                         "provider_version": version, "artifact_sha256": artifact_hash,
+                         "snapshot_id": digest(js(identity).encode())}
+    return records
+
+
+def metadata_matches(record, name, source_fingerprint, artifact_hash):
+    if not record:  # Legacy state has no build receipt.
+        return True
+    version = PROVIDERS[name][1]
+    identity = ["aidev-index-v1", name, version, source_fingerprint, artifact_hash]
+    return (record.get("input_fingerprint") == source_fingerprint and record.get("provider_version") == version
+            and record.get("artifact_sha256") == artifact_hash
+            and record.get("snapshot_id") == digest(js(identity).encode()))
+
+
 def state_read(root):
     raw = read(root, ".aidev/state.json")
     if raw is None:
@@ -603,10 +671,24 @@ def initialize(root, dry_run=False, timeout=600):
                 atomic(root / ".aidev/state.json", js(state).encode())
             return {**state, "backup": backup, "next": "Python/JavaScript/TypeScriptのコード追加後に aidev init を再実行してください。"}
         current = fingerprint(root, files)
+        start_head = current_head(root)
         current_artifacts = artifacts(root, langs)
-        if old_state.get("root") == str(root) and old_state.get("status") == "LOCAL_READY" and old_state.get("fingerprint") == current and current_artifacts == old_state.get("artifacts"):
+        native_crg_head = crg_build_head(root)
+        saved_records = old_state.get("index_metadata")
+        if not isinstance(saved_records, dict):
+            saved_records = {}
+        current_hashes = (artifact_hashes(root, langs, current_artifacts)
+                          if current_artifacts and current_artifacts["serena_cache"]["ready"] else {})
+        records_match = bool(current_artifacts and current_artifacts["serena_cache"]["ready"] and all(
+            (name not in saved_records or isinstance(saved_records[name], dict))
+            and metadata_matches(saved_records.get(name), name, current, current_hashes[name]) for name in PROVIDERS))
+        if (old_state.get("root") == str(root) and old_state.get("status") == "LOCAL_READY"
+                and old_state.get("fingerprint") == current and current_artifacts == old_state.get("artifacts")
+                and records_match and (native_crg_head is None or native_crg_head == start_head)):
             return {"status": "LOCAL_READY", "root": str(root), "changed": bool(changes), "indexes": "再利用", "codex_mcp": "UNVERIFIED", "next": NEXT}
-        state = {"schema_version": 1, "root": str(root), "status": "INITIALIZING", "codex_mcp": "UNVERIFIED", "steps": {}}
+        state = {"schema_version": 1, "root": str(root), "status": "INITIALIZING", "codex_mcp": "UNVERIFIED", "steps": {},
+                 "index_metadata": saved_records}
+        completed = {}
         source_hashes = {f: digest((root / f).read_bytes()) for f in files}
         atomic(root / ".aidev/state.json", js(state).encode())
         commands = [
@@ -630,6 +712,7 @@ def initialize(root, dry_run=False, timeout=600):
                     if result.get("status") != "ok" or result.get("errors") or result.get("warnings"):
                         raise Problem(f"CRGの解析・後処理が未完了です。ログ: {log}")
                 state["steps"][name] = "PASS"
+                completed[name] = utc_now()
             except Problem as exc:
                 state.update(status="FAILED", error=str(exc))
                 state["steps"][name] = "FAILED"
@@ -643,11 +726,14 @@ def initialize(root, dry_run=False, timeout=600):
             raise Problem("索引のノードまたはSerenaキャッシュが不完全です。言語・ignore・解析ログを確認してください。")
         # Serena may canonically rewrite its own config; record only after success.
         after_files = sources(root, rules)
-        if files != after_files or any(digest((root / f).read_bytes()) != source_hashes[f] for f in files):
+        if (files != after_files or current_head(root) != start_head
+                or any(digest((root / f).read_bytes()) != source_hashes[f] for f in files)):
             state.update(status="FAILED", error="処理中のコード変更")
             atomic(root / ".aidev/state.json", js(state).encode())
             raise Problem("処理中に対象コードが増減しました。再実行してください。")
-        state.update(status="LOCAL_READY", fingerprint=fingerprint(root, after_files), artifacts=result)
+        final_fingerprint = fingerprint(root, after_files)
+        state.update(status="LOCAL_READY", fingerprint=final_fingerprint, artifacts=result,
+                     index_metadata=index_metadata(root, final_fingerprint, langs, result, completed))
         atomic(root / ".aidev/state.json", js(state).encode())
         return {**state, "backup": backup, "next": NEXT}
 
@@ -660,21 +746,87 @@ def doctor(root):
     if changes:
         issues.append("不足設定あり: " + ", ".join(str(root / p) for p in changes))
     state = state_read(root)
+    current_fingerprint = fingerprint(root, files)
+    current_artifacts = None
+    source_matches = state.get("fingerprint") == current_fingerprint
     if state.get("root") != str(root):
         issues.append("このcheckoutの初期化記録がありません")
     if state.get("status") != "LOCAL_READY":
         issues.append("コード追加待ち" if not files else "初期化・索引構築が未完了")
-    elif state.get("fingerprint") != fingerprint(root, files):
+    elif not source_matches:
         issues.append("コードまたは解析設定が変わっています。aidev init で更新してください")
-    elif artifacts(root, langs) != state.get("artifacts"):
-        issues.append("索引が欠落・変更されています。aidev init で確認してください")
+    else:
+        current_artifacts = artifacts(root, langs)
+        if current_artifacts != state.get("artifacts"):
+            issues.append("索引が欠落・変更されています。aidev init で確認してください")
+    native_crg_head = crg_build_head(root)
+    head = current_head(root)
+    if native_crg_head is not None and native_crg_head != head:
+        issues.append("CRGの構築時HEADが現在のHEADと異なります。aidev init で更新してください")
     if not changes:
         ensure_ignored(root)
     cache = serena_caches(root, langs)
     if files and not cache["ready"]:
         issues.extend(cache["issues"])
+    saved_artifacts = state.get("artifacts") or {}
+    saved_records = state.get("index_metadata") if isinstance(state.get("index_metadata"), dict) else {}
+    actual_hashes = {}
+    if current_artifacts:
+        actual_hashes = {"graphify": current_artifacts["graphify_sha256"], "crg": current_artifacts["crg_sha256"]}
+        if cache["ready"]:
+            actual_hashes["serena"] = serena_artifact_hash(root, langs)
+    record_matches = {}
+    for name in PROVIDERS:
+        record = saved_records.get(name) if isinstance(saved_records.get(name), dict) else {}
+        record_matches[name] = bool(name in actual_hashes and metadata_matches(record, name, current_fingerprint, actual_hashes[name]))
+    if source_matches and current_artifacts is not None:
+        for name, matches in record_matches.items():
+            if not matches:
+                issues.append(f"{name}の成果物・構築記録が一致しません。aidev init で更新してください")
+    providers = {}
+    for name in PROVIDERS:
+        record = saved_records.get(name) if isinstance(saved_records.get(name), dict) else {}
+        reasons = []
+        if changes:
+            reasons.append("設定更新が必要")
+        if state.get("root") != str(root) or state.get("status") != "LOCAL_READY":
+            reasons.append("初期化・索引構築が未完了")
+        elif not source_matches:
+            reasons.append("解析入力が変更されています")
+        elif current_artifacts is None:
+            reasons.append("成果物が欠落しています")
+        elif name == "serena" and current_artifacts["serena_cache"] != saved_artifacts.get("serena_cache"):
+            reasons.append("Serenaキャッシュが変更されています")
+        elif name == "graphify" and current_artifacts["graphify_sha256"] != saved_artifacts.get("graphify_sha256"):
+            reasons.append("Graphify索引が変更されています")
+        elif name == "crg" and current_artifacts["crg_sha256"] != saved_artifacts.get("crg_sha256"):
+            reasons.append("CRG索引が変更されています")
+        if name == "serena" and not cache["ready"]:
+            reasons.append("Serenaキャッシュが不完全です")
+        if source_matches and current_artifacts is not None and not record_matches[name]:
+            reasons.append("成果物・構築記録が一致しません")
+        if name == "crg" and native_crg_head is not None and native_crg_head != head:
+            reasons.append("CRGの構築時HEADが異なります")
+        providers[name] = {"status": "NEEDS_INIT" if reasons else "READY", "reasons": reasons,
+                           "built_at": record.get("built_at"), "build_git_head": record.get("git_head"),
+                           "input_fingerprint": record.get("input_fingerprint"),
+                           "provider_version": record.get("provider_version"),
+                           "artifact_sha256": record.get("artifact_sha256"), "snapshot_id": record.get("snapshot_id"),
+                           "next": "aidev init" if reasons else None}
+    try:
+        terrain_config = safe_path(root, ".terrain/aidev.json")
+        if terrain_config.exists():
+            import terrain_provider
+            terrain_report = terrain_provider.doctor(root)
+            providers["terrain"] = terrain_provider.doctor_summary(root, terrain_report)
+        else:
+            providers["terrain"] = {"status": "NOT_INSTALLED", "reasons": [], "next": "aidev terrain init --dry-run"}
+    except (Problem, OSError, ValueError, KeyError, TypeError) as exc:
+        providers["terrain"] = {"status": "TERRAIN_INVALID", "reasons": [str(exc)], "next": "aidev terrain doctor --json"}
     return {"status": "NEEDS_INIT" if issues else "LOCAL_READY", "root": str(root), "languages": langs, "issues": issues,
-            "codex_mcp": "UNVERIFIED", "next": NEXT, "writes": False}
+            "codex_mcp": "UNVERIFIED", "next": NEXT, "writes": False,
+            "checked_at": utc_now(), "current_input_fingerprint": current_fingerprint,
+            "source_files": len(files), "providers": providers}
 
 
 def main(argv=None):
@@ -722,6 +874,12 @@ def main(argv=None):
             print(f"{result['status']}: {root}")
             for issue in result.get("issues", []):
                 print(f"  - {issue}")
+            if args.command == "doctor":
+                for name, detail in result["providers"].items():
+                    reason = "; ".join(detail.get("reasons", []))
+                    print(f"  {name}: {detail['status']}" + (f" ({reason})" if reason else ""))
+                    if detail.get("next") and detail["status"] not in ("READY", "NOT_INSTALLED"):
+                        print(f"    次: {detail['next']}")
             if result.get("backup"):
                 print(f"backup: {result['backup']}")
             print(result.get("next", ""))
