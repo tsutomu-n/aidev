@@ -120,6 +120,29 @@ class InitTests(unittest.TestCase):
         self.assertEqual((Path(result["backup"]) / ".codex/config.toml").read_text(), text)
         self.assertTrue((self.root / ".gitignore").read_text().startswith("# existing\nmy-output/\n"))
 
+    def test_code_guidance_preserves_user_rules_and_is_idempotent(self):
+        original = "# User rules\nKeep this instruction.\n"
+        self.write("AGENTS.md", original)
+        self.write("code.py", "def answer(): return 42\n")
+        build, _ = self.fake_build()
+        with build:
+            result = aidev.initialize(self.root)
+            text = (self.root / "AGENTS.md").read_text()
+            self.assertTrue(text.startswith(original))
+            self.assertEqual(text.count(aidev.CODE_START), 1)
+            for name in ("Serena", "Graphify", "CRG"):
+                self.assertIn(name, text)
+            self.assertEqual((Path(result["backup"]) / "AGENTS.md").read_text(), original)
+            aidev.initialize(self.root)
+            self.assertEqual((self.root / "AGENTS.md").read_text(), text)
+
+    def test_invalid_code_guidance_marker_stops_before_write(self):
+        self.write("AGENTS.md", aidev.CODE_START + "\npartial\n")
+        before = snapshot(self.root)
+        with self.assertRaisesRegex(aidev.Problem, "AGENTS管理marker"):
+            aidev.initialize(self.root)
+        self.assertEqual(snapshot(self.root), before)
+
     def test_explicit_disabled_policy_is_not_overwritten(self):
         self.write(".codex/dev-capabilities.json", json.dumps({"schema_version": 1, "capabilities": {"symbol_semantics": []}}))
         before = snapshot(self.root)

@@ -93,7 +93,7 @@ aidev doctor --json
 
 `--dry-run` は設定変更予定の確認です。`init` がrepo設定と索引を作り、`doctor` の `LOCAL_READY` がローカル検査の通過です。登録されたSerena/CRGのexe絶対パスをMCP設定に記録するため、uvの公開コマンド用PATHへの依存を避けられます。既存の異なるMCP設定は上書きせず停止します。
 
-次にそのrepoから新規Codexセッションを開き、MCP接続と実際の定義・参照・影響照会を確認してください。aidevは `codex_mcp: UNVERIFIED` を維持します。これをWindows実機受入の成功と取り違えないでください。対象repoを別端末へ移した場合、絶対パスを含む設定と登録を実機に合わせて再確認します。
+`init` は既存の `AGENTS.md` を保全して、Serena・Graphify・CRGの使い分けを短い管理ブロックに追記します。次にそのrepoから新規Codexセッションを開き、MCP接続と、ツール名を指定しない定義・構造・影響照会で実際の利用を確認してください。aidevは `codex_mcp: UNVERIFIED` を維持します。これをWindows実機受入の成功と取り違えないでください。対象repoを別端末へ移した場合、絶対パスを含む設定と登録を実機に合わせて再確認します。
 
 ## 6. Windows実機での検証
 

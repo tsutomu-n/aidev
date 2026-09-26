@@ -2,6 +2,14 @@
 
 入口：[/home/tn/projects/aidev/README.md](../README.md) ／ 操作手順：[/home/tn/projects/aidev/docs/USER_GUIDE.md](USER_GUIDE.md)
 
+## 2026-09-26 Codexの作業別コード調査導線
+
+`aidev init` は既存の `AGENTS.md` を保全・backupして、Serena（定義・参照）、Graphify（構造・関係）、CRG（変更影響）の短い管理ブロックを作成・更新します。Terrainの任意管理ブロックは、場所不明の横断調査でpackを最初の候補探索に使い、未生成contextの `read-context` を要求しない案内へ修正しました。グローバルSkill・承認台帳は変更していません。
+
+Ubuntu / Python 3.14.3の全98 testsは96成功・Windows専用2件skip。既存 `AGENTS.md` のbyte保全、backup、再実行時の重複防止、不正markerでの書込み前停止、Terrain案内更新を確認しました。通常コマンドを更新後、JustPassで3providerの `aidev init` とTerrain `refresh` を実行しました。Codex照会後に一度 `aidev doctor` がfingerprint差を検出し、設定変更なしの `aidev init` で再構築しました。差の原因は特定できていません。最終doctorは `LOCAL_READY`、Terrain doctorは `TERRAIN_READY_CONTEXT_NOT_BUILT` / pack PASS / source_fresh trueです。context生成・外部LLM処理は行っていません。
+
+新規Codex CLIセッションでツール名を含まない依頼を実測しました。定義・参照ではSerenaの `find_symbol` と `find_referencing_symbols` を呼び、回答まで完了。構造調査ではGraphify `query` 4回がexit 0、仮定した変更影響ではCRG `get_minimal_context_tool` を呼び、場所不明の横断調査ではTerrain `doctor`、`grep-pack`、`read-pack-file` がexit 0でした。後の3セッションは能力選択と照会結果を確認した時点で中断しており、回答全体の完了や調査品質の受入ではありません。TerrainはCodexのread-only shellで一時ファイルを作れずdoctorがexit 2となり、workspace-write shellでソース・設定の変更を禁じた再試行で照会を確認しました。Codexが今後の全依頼で必ず同じ能力を選ぶ保証、Windows実機受入はありません。
+
 ## 2026-09-26 Terrain CLIヘルプの案内修正
 
 `aidev --help`、`aidev terrain --help`、`aidev terrain init --help` に、runtime登録とRepoごとの初期化、dry-run→init→doctor、秘密ファイル候補・例外・既存assets衝突時の停止、LLM処理は `--build-context` 指定時のみという境界を表示します。Ubuntu / Python 3.13.7の全96 testsは94成功・Windows専用2件skip。修正したhelpの表示と文言をCLI testで確認しました。Windows実機と別Repoのinit成功はこの結果から推定しません。

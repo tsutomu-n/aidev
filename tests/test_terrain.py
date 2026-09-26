@@ -293,6 +293,7 @@ class TerrainTests(unittest.TestCase):
         (self.root / 'AGENTS.md').write_text(text)
         self.init()
         self.assertNotIn('old guidance', (self.root / 'AGENTS.md').read_text())
+        self.assertIn('contextが生成済みで新しい場合だけ', (self.root / 'AGENTS.md').read_text())
 
     def test_manual_guidance_never_claimed(self):
         original = '# Rules\n\n## Terrain Knowledge Layer\nmanual instructions\n'

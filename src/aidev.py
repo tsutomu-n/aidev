@@ -32,7 +32,20 @@ EXCLUDES = [".git/", ".aidev/", ".codex/", ".serena/", "graphify-out/", ".code-r
 GIT_EXCLUDES = ["/.aidev/", "/graphify-out/", "/.code-review-graph/", "/.serena/runtime/", "/.serena/cache/", "/.serena/memories/", "/.serena/logs/", "/.serena/project.local.yml"]
 SERENA_TOOLS = ["initial_instructions", "activate_project", "get_current_config", "get_symbols_overview", "find_symbol", "find_referencing_symbols", "find_implementations", "find_declaration", "get_diagnostics_for_file", "list_memories", "read_memory", "onboarding", "write_memory", "replace_symbol_body", "rename_symbol", "insert_after_symbol", "insert_before_symbol"]
 CRG_TOOLS = ["list_graph_stats_tool", "query_graph_tool", "get_impact_radius_tool", "get_review_context_tool", "get_minimal_context_tool", "detect_changes_tool", "build_or_update_graph_tool"]
-NEXT = "Repoルートから新規Codexセッションを開き、標準の信頼確認後に /mcp と定義・参照・影響照会を確認してください。"
+NEXT = "Repoルートから新規Codexセッションを開き、標準の信頼確認後に /mcp と、ツール名を指定しない定義・構造・影響照会で実際の利用を確認してください。"
+CODE_START = "<!-- aidev:code-intelligence:start -->"
+CODE_END = "<!-- aidev:code-intelligence:end -->"
+CODE_GUIDANCE = '''<!-- aidev:code-intelligence:start -->
+## aidev コード調査
+
+単純な文字列・設定値の検索や既知ファイルの小修正は通常の手段を使います。次の調査が主題なら、利用可能な対応能力を選びます。
+- シンボルの定義・参照の追跡: Serena MCPのシンボル照会。
+- モジュールやコード間の構造・関係: Graphify CLIの索引照会。
+- 差分の影響範囲・レビュー対象・テスト候補: CRG MCPの影響照会。比較baseを明示します。
+
+重要な判断の前やコード・branchの変更後は`aidev doctor`で索引の鮮度を確認します。`LOCAL_READY`はMCP接続の証明ではありません。
+能力が利用できない場合は実ソースで調べ、不足を伝えます。索引の候補と重要な主張・編集対象は実ソース/tests/schemasで確認します。
+<!-- aidev:code-intelligence:end -->'''
 
 
 class Problem(Exception):
@@ -343,6 +356,15 @@ def add_lines(old, lines):
     return (text + ("\n" if text and not text.endswith("\n") else "") + "\n" + block).encode()
 
 
+def code_guidance(old):
+    text = (old or b"").decode("utf-8")
+    if CODE_START in text or CODE_END in text:
+        if text.count(CODE_START) != 1 or text.count(CODE_END) != 1 or text.index(CODE_START) > text.index(CODE_END):
+            raise Problem("aidev AGENTS管理markerが不正です")
+        return (text[:text.index(CODE_START)] + CODE_GUIDANCE + text[text.index(CODE_END) + len(CODE_END):]).encode()
+    return (text + ("\n\n" if text else "") + CODE_GUIDANCE + "\n").encode()
+
+
 def existing_serena_log_link(root, path):
     # Older Serena setups can link per-project logs to Serena's user log dir.
     # This is not an aidev output or config path, and os.walk never follows it.
@@ -411,6 +433,7 @@ def plan(root, bins, files):
             raise Problem(f"既存の能力選択と衝突: {cap}。既存の無効化・別provider指定を保全しました。")
         policy["capabilities"][cap] = wanted
     stage(".codex/dev-capabilities.json", original if original and json.loads(original) == policy else js(policy).encode())
+    stage("AGENTS.md", code_guidance(read(root, "AGENTS.md")))
     for relative, lines in [(".gitignore", GIT_EXCLUDES), (".graphifyignore", EXCLUDES), (".code-review-graphignore", EXCLUDES)]:
         stage(relative, add_lines(read(root, relative), lines))
     stage(".aidev/.gitignore", add_lines(read(root, ".aidev/.gitignore"), ["*"]))

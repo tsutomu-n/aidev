@@ -8,7 +8,7 @@ Terrainは任意導入のderived navigation/index layerです。Code、tests、s
 
 既存の `aidev init` / `doctor` / `setup` は従来の3provider用です。Terrain未導入でも動作します。Terrainは `aidev terrain` namespaceから明示導入します。`--with-terrain` / `--allow-llm` はありません。
 
-known-fileの小修正ではlive sourceを直接読みます。architecture・multi-module・場所不明の調査では、doctor → read-context → grep-pack/read-pack-fileの順に絞り、重要な主張と編集対象をlive source/tests/schemasで確かめます。pack全文をLLM contextへ読み込みません。
+known-fileの小修正ではlive sourceを直接読みます。architecture・multi-module・場所不明の横断調査ではTerrain packを最初の候補探索に使います。doctorで状態を確認し、利用可能なpackをgrep-pack → read-pack-fileで絞ります。contextが生成済みで新しい場合に限りread-contextも使えます。重要な主張と編集対象はlive source/tests/schemasで確かめます。pack全文をLLM contextへ読み込みません。
 
 ## マシンで一度だけ準備
 

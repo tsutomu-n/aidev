@@ -28,9 +28,10 @@ GUIDANCE = '''<!-- aidev:terrain:start -->
 ## Terrain Knowledge Layer
 
 Terrainはderived navigation/index layerです。Source of Truthはcode/tests/schemas/config/lockfiles/CI/CLI helpです。
-known-fileの小修正でTerrainを必須にせず、architecture・multi-module・場所不明の調査に使います。
-`aidev terrain doctor`で状態を確認し、`aidev terrain tools read-context`から
-`aidev terrain tools grep-pack --pattern "語句"` / `aidev terrain tools read-pack-file --file PATH`で絞ります。
+known-fileの小修正でTerrainを必須にしません。場所が不明な横断調査やarchitecture・multi-moduleの候補探しでは、Terrain packを最初の候補探索に使います。
+`aidev terrain doctor`で状態を確認します。packが利用可能なら
+`aidev terrain tools grep-pack --pattern "語句"` → `aidev terrain tools read-pack-file --file PATH`で候補を絞ります。
+`aidev terrain tools read-context`はcontextが生成済みで新しい場合だけ使います。packが古い場合はrefreshが必要です。
 重要な主張と編集対象は必ずlive source/tests/schemasで確認します。repomix全文をcontextへ読みません。
 raw Terrain registry操作よりaidev wrapperを使います。context生成は明示的な`--build-context`時だけです。
 <!-- aidev:terrain:end -->'''
