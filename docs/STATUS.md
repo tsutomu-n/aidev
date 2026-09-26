@@ -2,6 +2,10 @@
 
 入口：[/home/tn/projects/aidev/README.md](../README.md) ／ 操作手順：[/home/tn/projects/aidev/docs/USER_GUIDE.md](USER_GUIDE.md)
 
+## 2026-09-26 Terrain CLIヘルプの案内修正
+
+`aidev --help`、`aidev terrain --help`、`aidev terrain init --help` に、runtime登録とRepoごとの初期化、dry-run→init→doctor、秘密ファイル候補・例外・既存assets衝突時の停止、LLM処理は `--build-context` 指定時のみという境界を表示します。Ubuntu / Python 3.13.7の全96 testsは94成功・Windows専用2件skip。修正したhelpの表示と文言をCLI testで確認しました。Windows実機と別Repoのinit成功はこの結果から推定しません。
+
 ## 2026-09-26 JustPass Terrainローカル導入
 
 Git管理中の設定例 `/home/tn/projects/JustPass/.env.example` と、認証情報を扱うPythonソース `secrets.py`・`credentials.py` が名前ベースの秘密ファイル判定で止まったため、これらの正確な名前だけを許容しました。実際の `.env`、`.env.production`、`secrets.json` 等は拒否し続けます。例外は内容の安全性を保証せず、JustPassの対象3ファイルは実物を確認しました。

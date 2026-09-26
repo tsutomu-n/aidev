@@ -485,7 +485,12 @@ def read_tool(root, args):
 
 
 def add_parser(sub):
-    terrain = sub.add_parser("terrain", help="任意導入のTerrain knowledge/navigation layer")
+    terrain = sub.add_parser(
+        "terrain", help="各Repoに導入できるTerrain索引（runtime登録が必要）",
+        description="TerrainはRepoごとの任意の索引です。マシン側のruntime登録後、対象Git Repoのルートでinitします。",
+        epilog="手順: aidev terrain init --dry-run → aidev terrain init → aidev terrain doctor\n"
+               "initはローカルscan/packを作成します。LLMによるcontext生成は--build-contextを明示した場合だけです。",
+        formatter_class=argparse.RawDescriptionHelpFormatter)
     commands = terrain.add_subparsers(dest="terrain_command", required=True)
     install = commands.add_parser("install", help="指定upstreamとpatchをbuildして専用runtimeを登録")
     install.add_argument("--allow-download", action="store_true")
@@ -498,12 +503,24 @@ def add_parser(sub):
     setup.add_argument("--replace", action="store_true")
     setup.add_argument("--timeout", type=int, default=600)
     for name in ("init", "refresh"):
-        parser = commands.add_parser(name)
-        parser.add_argument("--build-context", action="store_true", help="必要な場合だけCodex ACPによるLLM処理でcontextを生成・更新（外部送信あり）")
-        parser.add_argument("--timeout", type=int, default=600)
         if name == "init":
-            parser.add_argument("--dry-run", action="store_true")
-            parser.add_argument("--slug")
+            parser = commands.add_parser(
+                name, help="対象Git Repoの索引を作成（先に--dry-runで確認）",
+                description="登録済みTerrain runtimeを使い、現在のGit Repoに索引とpackを作成します。",
+                epilog="事前確認: 対象Git Repoのルートで aidev terrain init --dry-run を実行してください。\n"
+                       "Git非除外の .env や credentials.json 等の秘密ファイル候補、危険なリンク、\n"
+                       "既存assetsとの衝突があれば書込み前に停止します。repo直下の .env.example と\n"
+                       "Pythonソースの secrets.py / credentials.py は名前による例外です。内容の安全性は確認しません。\n"
+                       "runtime未登録なら aidev terrain install または setup で準備してください。\n"
+                       "実行後は aidev terrain doctor で確認します。LLM処理は--build-context指定時だけです。",
+                formatter_class=argparse.RawDescriptionHelpFormatter)
+        else:
+            parser = commands.add_parser(name, help="導入済みRepoの索引を更新")
+        parser.add_argument("--build-context", action="store_true", help="必要な場合だけCodex ACPによるLLM処理でcontextを生成・更新（外部送信あり）")
+        parser.add_argument("--timeout", type=int, default=600, help="Terrain処理の上限秒数（既定600）")
+        if name == "init":
+            parser.add_argument("--dry-run", action="store_true", help="入力と変更予定を検査し、書き込まずTerrainも起動しない")
+            parser.add_argument("--slug", help="初回のRepo識別名（省略時はorigin名またはRepo名）")
     commands.add_parser("doctor", help="Terrainを起動しない書込みなし診断").add_argument("--json", action="store_true")
     tools = commands.add_parser("tools").add_subparsers(dest="tool", required=True)
     tools.add_parser("read-context").add_argument("--section")

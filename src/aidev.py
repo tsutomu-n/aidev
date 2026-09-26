@@ -670,7 +670,7 @@ def main(argv=None):
         import terrain_provider
         terrain_provider.add_parser(sub)
     else:
-        sub.add_parser("terrain", help="任意導入のTerrain knowledge/navigation layer")
+        sub.add_parser("terrain", help="各Repoに導入できるTerrain索引（runtime登録が必要）")
     args = parser.parse_args(argv)
     try:
         if args.command == "terrain":

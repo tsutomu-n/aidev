@@ -525,10 +525,19 @@ class TerrainTests(unittest.TestCase):
             provider.read_tool(self.root, argparse.Namespace(tool='read-context'))
 
     def test_cli_help_and_invalid_flags(self):
+        entry = str(install.source_file(install.SOURCE, 'aidev.py'))
         for args in (['terrain'], ['terrain', 'init'], ['terrain', 'refresh'], ['terrain', 'doctor'], ['terrain', 'tools', 'grep-pack']):
-            result = subprocess.run([sys.executable, '-B', str(install.source_file(install.SOURCE, 'aidev.py')), *args, '--help'], capture_output=True)
+            result = subprocess.run([sys.executable, '-B', entry, *args, '--help'], capture_output=True, text=True, encoding='utf-8')
             self.assertEqual(result.returncode, 0, result.stderr)
-        result = subprocess.run([sys.executable, '-B', str(install.source_file(install.SOURCE, 'aidev.py')), 'terrain', 'init', '--allow-llm'], capture_output=True)
+            if args == ['terrain']:
+                self.assertIn('init --dry-run', result.stdout)
+                self.assertIn('runtime登録', result.stdout)
+            if args == ['terrain', 'init']:
+                for phrase in ('Git Repoのルート', '.env.example', 'secrets.py', '書き込まずTerrainも起動しない', '--build-context'):
+                    self.assertIn(phrase, result.stdout)
+        result = subprocess.run([sys.executable, '-B', entry, '--help'], capture_output=True, text=True, encoding='utf-8')
+        self.assertIn('各Repoに導入できるTerrain索引', result.stdout)
+        result = subprocess.run([sys.executable, '-B', entry, 'terrain', 'init', '--allow-llm'], capture_output=True)
         self.assertNotEqual(result.returncode, 0)
 
 
