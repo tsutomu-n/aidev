@@ -343,6 +343,13 @@ def add_lines(old, lines):
     return (text + ("\n" if text and not text.endswith("\n") else "") + "\n" + block).encode()
 
 
+def existing_serena_log_link(root, path):
+    # Older Serena setups can link per-project logs to Serena's user log dir.
+    # This is not an aidev output or config path, and os.walk never follows it.
+    return (not WINDOWS and path == root / ".serena/runtime/logs" and path.is_symlink()
+            and path.is_dir() and path.resolve() == (Path.home() / ".serena/logs").resolve())
+
+
 def plan(root, bins, files):
     changes = {}
     before = {}
@@ -366,7 +373,7 @@ def plan(root, bins, files):
                     # npm creates internal .bin symlinks in Serena's own LSP install.
                     lsp = root / ".serena/runtime/language_servers"
                     internal_lsp_link = child.is_symlink() and child.is_relative_to(lsp) and child.resolve().is_relative_to(lsp)
-                    if (is_link(child) and not internal_lsp_link) or (not child.is_symlink() and child.is_file() and child.stat().st_nlink > 1):
+                    if (is_link(child) and not internal_lsp_link and not existing_serena_log_link(root, child)) or (not child.is_symlink() and child.is_file() and child.stat().st_nlink > 1):
                         raise Problem(f"リンクを含む既存解析状態は自動変更しません: {child}")
     tracked = git(root, "ls-files", "-z").split("\0")
     if any(x and any(x.startswith(p.strip("/") + "/") or x == p.strip("/") for p in GIT_EXCLUDES) for x in tracked):

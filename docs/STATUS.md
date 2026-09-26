@@ -2,6 +2,12 @@
 
 入口：[/home/tn/projects/aidev/README.md](../README.md) ／ 操作手順：[/home/tn/projects/aidev/docs/USER_GUIDE.md](USER_GUIDE.md)
 
+## 2026-09-26 Serenaログリンクの互換修正
+
+既存の `/home/tn/projects/JustPass/.serena/runtime/logs` が `/home/tn/.serena/logs` を指すため、従来の `init` と `doctor` は解析状態のリンク検査で停止しました。Ubuntuでは、この既存ログリンクだけを許容するようsourceを修正しました。リンク先を走査・変更せず、その他の外部リンクや設定・出力先のリンク拒否は維持します。
+
+Ubuntu / Python 3.13.7で95件中93件成功、Windows専用2件skip。リンクを保全したfixtureで `init` と `doctor` が `LOCAL_READY`、別の外部ログリンクは拒否することを確認しました。修正版を通常コマンドに導入後、実JustPassで `aidev init --dry-run` が成功し、変更予定4ファイル・対象コード3323ファイル・書込みなしでした。`aidev doctor --json` はリンクエラーを越え、未初期化を `NEEDS_INIT` と診断しました。実providerによる同repoの索引構築とCodex接続は未確認です。過去の通常環境受入やWindows実機受入へこの結果を合算しません。
+
 ## Ubuntu通常環境への導入・受入
 
 今回の通常環境は **UBUNTU_NORMAL_ACCEPTED**。旧0.1.0の3ファイル配置から0.3.0へ更新し、通常launcher `/home/tn/.local/bin/aidev` と通常認証 `/home/tn/.codex` で受入を実施しました。過去の隔離候補の成功とは別の結果です。

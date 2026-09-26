@@ -139,6 +139,45 @@ class InitTests(unittest.TestCase):
                 aidev.initialize(self.root)
             self.assertEqual(list(Path(outside).iterdir()), [])
 
+    def test_existing_serena_user_log_link_is_preserved(self):
+        if aidev.WINDOWS:
+            self.skipTest("Serena user-log symlink exception is Ubuntu-only")
+        with tempfile.TemporaryDirectory() as home:
+            logs = Path(home) / ".serena/logs"
+            logs.mkdir(parents=True)
+            link = self.root / ".serena/runtime/logs"
+            link.parent.mkdir(parents=True)
+            try:
+                link.symlink_to(logs, target_is_directory=True)
+            except OSError as exc:
+                if os.name == "nt" and getattr(exc, "winerror", None) == 1314:
+                    self.skipTest("Windows symlink privilege unavailable")
+                raise
+            self.write("code.py", "def answer(): return 42\n")
+            build, _ = self.fake_build()
+            with patch.object(aidev.Path, "home", return_value=Path(home)):
+                self.assertEqual(aidev.initialize(self.root, dry_run=True)["status"], "PLAN")
+                self.assertEqual(aidev.doctor(self.root)["status"], "NEEDS_INIT")
+                with build:
+                    self.assertEqual(aidev.initialize(self.root)["status"], "LOCAL_READY")
+                self.assertEqual(aidev.doctor(self.root)["status"], "LOCAL_READY")
+            self.assertTrue(link.is_symlink())
+            self.assertEqual(link.resolve(), logs)
+            self.assertEqual(list(logs.iterdir()), [])
+
+    def test_other_serena_log_link_is_rejected(self):
+        with tempfile.TemporaryDirectory() as outside:
+            link = self.root / ".serena/runtime/logs"
+            link.parent.mkdir(parents=True)
+            try:
+                link.symlink_to(outside, target_is_directory=True)
+            except OSError as exc:
+                if os.name == "nt" and getattr(exc, "winerror", None) == 1314:
+                    self.skipTest("Windows symlink privilege unavailable")
+                raise
+            with self.assertRaisesRegex(aidev.Problem, "リンクを含む既存解析状態"):
+                aidev.initialize(self.root, dry_run=True)
+
     def test_tracked_artifact_is_not_untracked(self):
         self.write("graphify-out/graph.json", "{}")
         subprocess.run(["git", "-C", str(self.root), "add", "graphify-out/graph.json"], check=True)

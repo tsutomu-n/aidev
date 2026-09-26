@@ -75,7 +75,7 @@ GraphifyはJSONのnodes配列とファイルhash、CRGはread-only immutable SQL
 
 Serena等の終了0でも部分失敗の出力を検出します。CRG wrapperは `status` がokでも `errors` または `warnings` があれば失敗させ、成功時も `AIDEV_CRG_RESULT=` の構造化結果を本体で照合します。
 
-設定・出力のsymlink/hardlink、追跡済み解析生成物、Serenaの独自hook/backend/追加workspace、CRG保存先override等は停止条件です。Serena自身の言語サーバー内で完結する内部symlinkは例外です。`CRG_REPO_ROOT`、`CRG_DATA_DIR`、`CRG_HOME`、`GRAPHIFY_OUT`、`GRAPHIFY_FORCE` の有効値がある場合も停止します。
+設定・出力のsymlink/hardlink、追跡済み解析生成物、Serenaの独自hook/backend/追加workspace、CRG保存先override等は停止条件です。Serena自身の言語サーバー内で完結する内部symlinkは例外です。Ubuntuでは既存の `.serena/runtime/logs` が利用者の `.serena/logs` ディレクトリを指すsymlinkも許容します。aidevはリンク先を走査・変更しません。`CRG_REPO_ROOT`、`CRG_DATA_DIR`、`CRG_HOME`、`GRAPHIFY_OUT`、`GRAPHIFY_FORCE` の有効値がある場合も停止します。
 
 外部LLM抽出・embeddingを行わず、Graphifyはcode-only/no-cluster、CRGはminimal後処理です。ただしSerenaの初回言語サーバー取得はあり得ます。repo指定はproviderの強制隔離sandboxではありません。
 
