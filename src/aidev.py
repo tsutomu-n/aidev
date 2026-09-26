@@ -400,10 +400,15 @@ def plan(root, bins, files):
     changes = {}
     before = {}
 
+    def load(relative):
+        # Keep the bytes used to derive the plan, not a later re-read which
+        # could hide a concurrent edit from apply()'s preflight comparison.
+        if relative not in before:
+            before[relative] = read(root, relative)
+        return before[relative]
+
     def stage(relative, new):
-        old = read(root, relative)
-        before[relative] = old
-        if old != new:
+        if load(relative) != new:
             changes[relative] = new
 
     # Check known outputs before any provider can touch them.
@@ -424,12 +429,12 @@ def plan(root, bins, files):
     tracked = git(root, "ls-files", "-z").split("\0")
     if any(x and any(x.startswith(p.strip("/") + "/") or x == p.strip("/") for p in GIT_EXCLUDES) for x in tracked):
         raise Problem("解析生成物がGit追跡済みです。追跡状態を自動変更せず停止しました。")
-    if read(root, ".serena/project.local.yml") is not None:
+    if load(".serena/project.local.yml") is not None:
         raise Problem(f"Serenaのlocal overrideを先に確認してください: {root / '.serena/project.local.yml'}")
     crg = probe(bins, "crg", root)
     if Path(crg["data_dir"]).resolve() != root / ".code-review-graph":
         raise Problem("CRGのregistryが別の保存先を指定しています。既存設定を保全して停止しました。")
-    original = read(root, ".codex/config.toml")
+    original = load(".codex/config.toml")
     text = (original or b"").decode()
     parsed = tomllib.loads(text)
     for name, section in mcp_sections(bins).items():
@@ -445,7 +450,7 @@ def plan(root, bins, files):
     tomllib.loads(text)  # catches inline-table and duplicate-table conflicts
     stage(".codex/config.toml", text.encode())
 
-    original = read(root, ".codex/dev-capabilities.json")
+    original = load(".codex/dev-capabilities.json")
     policy = json.loads(original) if original else {"schema_version": 1, "capabilities": {}}
     if set(policy) != {"schema_version", "capabilities"} or type(policy["schema_version"]) is not int or policy["schema_version"] != 1 or not isinstance(policy["capabilities"], dict):
         raise Problem("既存のrepo policy形式を確認してください")
@@ -457,18 +462,22 @@ def plan(root, bins, files):
             raise Problem(f"既存の能力選択と衝突: {cap}。既存の無効化・別provider指定を保全しました。")
         policy["capabilities"][cap] = wanted
     stage(".codex/dev-capabilities.json", original if original and json.loads(original) == policy else js(policy).encode())
-    guidance_file = agents_guidance_file(root)
-    stage(guidance_file, code_guidance(read(root, guidance_file)))
+    # The presence/content of the override determines where guidance goes.
+    # Preserve that selection input too, even when AGENTS.md is selected.
+    override = load("AGENTS.override.md")
+    guidance_file = "AGENTS.override.md" if override and override.strip() else "AGENTS.md"
+    stage(guidance_file, code_guidance(load(guidance_file)))
     for relative, lines in [(".gitignore", GIT_EXCLUDES), (".graphifyignore", EXCLUDES), (".code-review-graphignore", EXCLUDES)]:
-        stage(relative, add_lines(read(root, relative), lines))
-    stage(".aidev/.gitignore", add_lines(read(root, ".aidev/.gitignore"), ["*"]))
+        stage(relative, add_lines(load(relative), lines))
+    stage(".aidev/.gitignore", add_lines(load(".aidev/.gitignore"), ["*"]))
 
     langs = sorted({LANGUAGES[Path(f).suffix.lower()] for f in files if Path(f).suffix.lower() in LANGUAGES})
     if files and not langs:
         raise Problem("初版の自動言語設定はPython・JavaScript・TypeScript対応です。このRepoの言語は未対応です。")
+    project_existing = load(".serena/project.yml")
+    runtime_existing = load(".serena/runtime/serena_config.yml")
     schema = probe(bins, "serena", root, langs)
     project = schema["project"]
-    project_existing = read(root, ".serena/project.yml")
     if project_existing:
         actual_langs = project.get("language_servers", project.get("languages", []))
         if project.get("activation_command") or project.get("ls_additional_workspace_folders") or project.get("additional_workspace_folders") or project.get("ls_workspace_folders", ["."]) != ["."] or project.get("ls_specific_settings") or project.get("language_backend") not in (None, "LSP"):
@@ -480,7 +489,6 @@ def plan(root, bins, files):
         project["ignored_paths"] = EXCLUDES
         stage(".serena/project.yml", js(project).encode())
 
-    runtime_existing = read(root, ".serena/runtime/serena_config.yml")
     runtime = schema["runtime"]
     if runtime_existing:
         if runtime.get("project_serena_folder_location", "$projectDir/.serena") != "$projectDir/.serena" or any(Path(p).resolve() != root for p in (runtime.get("projects") or [])):
@@ -523,7 +531,11 @@ def apply(root, changes, before):
     for relative in changes:
         if before[relative] is not None:
             atomic(backup / relative, before[relative])
-    atomic(backup / "changes.json", js({k: {"existed": before[k] is not None, "after_sha256": digest(v)} for k, v in changes.items()}).encode())
+    atomic(backup / "changes.json", js({k: {
+        "existed": before[k] is not None,
+        "before_sha256": digest(before[k]) if before[k] is not None else None,
+        "after_sha256": digest(v),
+    } for k, v in changes.items()}).encode())
     for relative, value in changes.items():
         if relative == barrier:
             continue
@@ -571,6 +583,8 @@ def artifacts(root, languages=()):
     if not graph.is_file() or not db.is_file():
         return None
     data = json.loads(graph.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise Problem("Graphifyのgraph形式を確認できません（JSON objectが必要です）")
     nodes = data.get("nodes", [])
     if not isinstance(nodes, list):
         raise Problem("Graphifyのgraph形式を確認できません")
@@ -635,8 +649,10 @@ def index_metadata(root, source_fingerprint, languages, result, completed):
 
 
 def metadata_matches(record, name, source_fingerprint, artifact_hash):
-    if not record:  # Legacy state has no build receipt.
+    if record is None:  # Only an absent metadata field is a legacy receipt.
         return True
+    if not isinstance(record, dict):
+        return False
     version = PROVIDERS[name][1]
     identity = ["aidev-index-v1", name, version, source_fingerprint, artifact_hash]
     return (record.get("input_fingerprint") == source_fingerprint and record.get("provider_version") == version
@@ -649,9 +665,25 @@ def state_read(root):
     if raw is None:
         return {}
     state = json.loads(raw)
-    if state.get("schema_version") != 1:
+    if (not isinstance(state, dict) or type(state.get("schema_version")) is not int
+            or state["schema_version"] != 1):
         raise Problem("未知のaidev状態形式です")
+    for key in ("artifacts", "index_metadata"):
+        if key in state and not isinstance(state[key], dict):
+            raise Problem(f"aidev状態の{key}はJSON objectである必要があります。元の状態は変更していません")
+    if "index_metadata" in state:
+        for name, record in state["index_metadata"].items():
+            if not isinstance(record, dict):
+                raise Problem(f"aidev構築記録の形式が不正です: {name}。元の状態は変更していません")
     return state
+
+
+def index_record(state, name):
+    # Legacy states omit the whole field. A missing entry in a newer receipt
+    # must fail comparison instead of being silently treated as legacy.
+    if "index_metadata" not in state:
+        return None
+    return state["index_metadata"].get(name, {})
 
 
 def initialize(root, dry_run=False, timeout=600):
@@ -674,14 +706,11 @@ def initialize(root, dry_run=False, timeout=600):
         start_head = current_head(root)
         current_artifacts = artifacts(root, langs)
         native_crg_head = crg_build_head(root)
-        saved_records = old_state.get("index_metadata")
-        if not isinstance(saved_records, dict):
-            saved_records = {}
+        saved_records = old_state.get("index_metadata", {})
         current_hashes = (artifact_hashes(root, langs, current_artifacts)
                           if current_artifacts and current_artifacts["serena_cache"]["ready"] else {})
         records_match = bool(current_artifacts and current_artifacts["serena_cache"]["ready"] and all(
-            (name not in saved_records or isinstance(saved_records[name], dict))
-            and metadata_matches(saved_records.get(name), name, current, current_hashes[name]) for name in PROVIDERS))
+            metadata_matches(index_record(old_state, name), name, current, current_hashes[name]) for name in PROVIDERS))
         if (old_state.get("root") == str(root) and old_state.get("status") == "LOCAL_READY"
                 and old_state.get("fingerprint") == current and current_artifacts == old_state.get("artifacts")
                 and records_match and (native_crg_head is None or native_crg_head == start_head)):
@@ -769,7 +798,6 @@ def doctor(root):
     if files and not cache["ready"]:
         issues.extend(cache["issues"])
     saved_artifacts = state.get("artifacts") or {}
-    saved_records = state.get("index_metadata") if isinstance(state.get("index_metadata"), dict) else {}
     actual_hashes = {}
     if current_artifacts:
         actual_hashes = {"graphify": current_artifacts["graphify_sha256"], "crg": current_artifacts["crg_sha256"]}
@@ -777,15 +805,15 @@ def doctor(root):
             actual_hashes["serena"] = serena_artifact_hash(root, langs)
     record_matches = {}
     for name in PROVIDERS:
-        record = saved_records.get(name) if isinstance(saved_records.get(name), dict) else {}
-        record_matches[name] = bool(name in actual_hashes and metadata_matches(record, name, current_fingerprint, actual_hashes[name]))
+        record_matches[name] = bool(name in actual_hashes and metadata_matches(
+            index_record(state, name), name, current_fingerprint, actual_hashes[name]))
     if source_matches and current_artifacts is not None:
         for name, matches in record_matches.items():
             if not matches:
                 issues.append(f"{name}の成果物・構築記録が一致しません。aidev init で更新してください")
     providers = {}
     for name in PROVIDERS:
-        record = saved_records.get(name) if isinstance(saved_records.get(name), dict) else {}
+        record = index_record(state, name) or {}
         reasons = []
         if changes:
             reasons.append("設定更新が必要")
