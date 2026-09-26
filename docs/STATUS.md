@@ -2,6 +2,12 @@
 
 入口：[/home/tn/projects/aidev/README.md](../README.md) ／ 操作手順：[/home/tn/projects/aidev/docs/USER_GUIDE.md](USER_GUIDE.md)
 
+## 2026-09-26 JustPass Terrainローカル導入
+
+Git管理中の設定例 `/home/tn/projects/JustPass/.env.example` と、認証情報を扱うPythonソース `secrets.py`・`credentials.py` が名前ベースの秘密ファイル判定で止まったため、これらの正確な名前だけを許容しました。実際の `.env`、`.env.production`、`secrets.json` 等は拒否し続けます。例外は内容の安全性を保証せず、JustPassの対象3ファイルは実物を確認しました。
+
+Ubuntu / Python 3.13.7で96件中94件成功、Windows専用2件skip。通常コマンドを更新し、JustPassで `terrain init --dry-run` 成功後、`terrain init` によるローカルscan/packを実行しました。最終doctorは `TERRAIN_READY_CONTEXT_NOT_BUILT`、runtime・packはPASS、入力鮮度trueです。packは約76 MB・metadata上2481ファイルで、`grep-pack` と `credentials.py` の `read-pack-file` を実測しました。一方、`secrets.py` はpackに見つからず個別読取りに失敗しました。packの網羅性を保証せず、live source照合が必要です。context生成、外部LLM、Codexからの実接続、Windows実機受入は行っていません。
+
 ## 2026-09-26 Serenaログリンクの互換修正
 
 既存の `/home/tn/projects/JustPass/.serena/runtime/logs` が `/home/tn/.serena/logs` を指すため、従来の `init` と `doctor` は解析状態のリンク検査で停止しました。Ubuntuでは、この既存ログリンクだけを許容するようsourceを修正しました。リンク先を走査・変更せず、その他の外部リンクや設定・出力先のリンク拒否は維持します。

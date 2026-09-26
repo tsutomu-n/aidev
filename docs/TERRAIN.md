@@ -70,7 +70,7 @@ ACP binaryと空argsを分離し、JSON stdioと専用mode `INITIAL_AGENT_MODE=a
 
 Terrainの起動自体にHOME側asset展開があるため、wrapperは一時HOMEと設定を用意します。`.env` の自動読込みを避けるためTerrain launcherのcwdはその一時HOME、対象repoは絶対 `--repo-path`・registry・環境で指定します。ACPのworking directoryは対象repoです。認証をコピーせず登録と一致する既存の `CODEX_HOME` を使います。起動ごとのPATHでは承認Terrainを優先し、JS版ACPでは登録Nodeも優先します。global PATHは変更しません。keyring等の認証方式は実環境で別途受入が必要です。
 
-Git ignoreを尊重し、nonignoredの `.env`、credentials、key等の代表的ファイル名は処理前に拒否します。これは任意の秘密文字列の自動redactionではありません。送信前にrepoのignoreと内容を確認してください。
+Git ignoreを尊重し、nonignoredの `.env`、credentials、key等の代表的ファイル名は処理前に拒否します。repo直下の `.env.example` と、ソースモジュール名 `secrets.py`・`credentials.py` は許容します。これらは名前による例外で内容の安全性を検査するものではありません。任意の秘密文字列の自動redactionもないため、索引化や送信前に内容を確認してください。
 
 ## 書込みなし診断
 

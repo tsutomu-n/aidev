@@ -36,6 +36,7 @@ raw Terrain registry操作よりaidev wrapperを使います。context生成は�
 <!-- aidev:terrain:end -->'''
 LOCAL_RULES = ["/agent/repomix.md", "/agent/meta.json", "/agent/meta-inputs*", "/.meta/"]
 SECRET_PATTERNS = [".env", ".env.*", "*.pem", "*.key", "credentials", "credentials.*", "secrets", "secrets.*", "id_rsa", "id_ed25519"]
+PUBLIC_SECRET_NAMES = {"secrets.py", "credentials.py"}
 
 
 def load_json(root, name, optional=False):
@@ -82,7 +83,12 @@ def input_files(root):
     for name in sorted(set(listed)):
         if not name or name in ignored_tracked or name.startswith((".terrain/", ".aidev/")):
             continue
-        if any(fnmatch.fnmatchcase(part.lower(), pattern) for part in PurePosixPath(name).parts for pattern in SECRET_PATTERNS):
+        parts = PurePosixPath(name).parts
+        public_example = name == ".env.example"
+        public_module = parts[-1].lower() in PUBLIC_SECRET_NAMES
+        if any(fnmatch.fnmatchcase(part.lower(), pattern) for part in parts[:-1] for pattern in SECRET_PATTERNS) or (
+                not (public_example or public_module) and
+                any(fnmatch.fnmatchcase(parts[-1].lower(), pattern) for pattern in SECRET_PATTERNS)):
             raise Problem(f"秘密ファイル候補を先にGit ignoreしてください: {root / name}")
         path = safe_path(root, name)
         if path.is_dir():

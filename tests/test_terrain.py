@@ -410,6 +410,23 @@ class TerrainTests(unittest.TestCase):
         with self.assertRaisesRegex(aidev.Problem, 'hardlink'):
             self.init()
 
+    def test_root_env_example_is_allowed_but_other_env_files_are_rejected(self):
+        (self.root / '.env.example').write_text('HOST_PORT=8000\n')
+        aidev.git(self.root, 'add', '.env.example')
+        (self.root / 'secrets.py').write_text('def load_secret(): return None\n')
+        (self.root / 'credentials.py').write_text('def load_credentials(): return None\n')
+        self.assertIn('.env.example', provider.input_files(self.root))
+        self.assertIn('secrets.py', provider.input_files(self.root))
+        self.assertIn('credentials.py', provider.input_files(self.root))
+        self.assertEqual(self.init(dry_run=True)['status'], 'PLAN')
+        (self.root / '.env.production').write_text('SECRET=private\n')
+        with self.assertRaisesRegex(aidev.Problem, '秘密ファイル候補'):
+            provider.input_files(self.root)
+        (self.root / '.env.production').unlink()
+        (self.root / 'secrets.json').write_text('{"token":"private"}\n')
+        with self.assertRaisesRegex(aidev.Problem, '秘密ファイル候補'):
+            provider.input_files(self.root)
+
     def test_install_requires_download_and_bundle_contains_all_files(self):
         before = snapshot(self.base)
         with patch.object(runtime, 'execute', side_effect=AssertionError('must not execute')):
