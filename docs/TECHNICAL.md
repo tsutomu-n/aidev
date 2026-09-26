@@ -23,7 +23,7 @@
 1. 起動cwdがGit rootそのものか確認し、root directoryに対応するOS別の排他的な非待機ロックを取る。ロックファイルは作らない。
 2. 専用登録があれば登録された3providerの承認・実行ファイルhash・CLI版を確認する。専用登録がないUbuntuでは従来の共通台帳とPATH上のCLI版を確認する。保存先overrideも拒否する。
 3. installed parserの拡張子・package manifest名を取得し、Gitが認識する対象ファイルを列挙する。
-4. 設定・保存先・追跡済み生成物・既存Serena schemaを検査し、既存 `AGENTS.md` を保全したコード調査案内も含めて変更予定と変更前byteを用意する。dry-runはここで `PLAN` を返す。
+4. 設定・保存先・追跡済み生成物・既存Serena schemaを検査し、ルートの非空 `AGENTS.override.md` があればそちら、なければ `AGENTS.md` を保全したコード調査案内も含めて変更予定と変更前byteを用意する。dry-runはここで `PLAN` を返す。
 5. 設定の並行変更を再確認し、backupのGit除外を先に保証する。変更する既存textを保存し、ファイルごとにatomic replaceする。
 6. 対象コードなしなら `WAITING_FOR_CODE` を保存する。コードありならfingerprintと成果物を比較し、一致する `LOCAL_READY` は索引再利用で終える。
 7. `INITIALIZING` を保存し、Serena index、Graphify AST抽出、CRG build/updateを順に実行する。途中経過を `steps` に保存する。
@@ -37,7 +37,7 @@
 
 ```text
 共有を検討する設定:
-  AGENTS.md
+  AGENTS.override.md または AGENTS.md
   .codex/config.toml
   .codex/dev-capabilities.json
   .gitignore

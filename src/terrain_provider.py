@@ -11,7 +11,7 @@ from pathlib import Path, PurePosixPath
 import re
 import time
 
-from aidev import Problem, atomic, digest, git, js, lock, read, repo_root, safe_path
+from aidev import Problem, agents_guidance_file, atomic, digest, git, js, lock, read, repo_root, safe_path
 import terrain_runtime as runtime
 
 CONFIG = ".terrain/aidev.json"
@@ -57,7 +57,7 @@ def local_file(name):
 
 
 def audit_paths(root):
-    for relative in ("AGENTS.md", ".gitignore", ".terrain", ".aidev", ".aidev/.gitignore", ".aidev/terrain"):
+    for relative in ("AGENTS.md", "AGENTS.override.md", ".gitignore", ".terrain", ".aidev", ".aidev/.gitignore", ".aidev/terrain"):
         safe_path(root, relative)
     for relative in (".terrain", ".aidev/terrain"):
         path = safe_path(root, relative)
@@ -243,9 +243,10 @@ def append_rules(old, rules):
 
 
 def prepare(root, slug):
-    guide, mode = guidance(read(root, "AGENTS.md"))
+    guidance_file = agents_guidance_file(root)
+    guide, mode = guidance(read(root, guidance_file))
     changes = {
-        "AGENTS.md": guide,
+        guidance_file: guide,
         CONFIG: js({"schema_version": 1, "managed_by": "aidev", "slug": slug, "terrain_version": runtime.TERRAIN_VERSION}).encode(),
         ".gitignore": append_rules(read(root, ".gitignore"), ["/.aidev/"]),
         ".aidev/.gitignore": append_rules(read(root, ".aidev/.gitignore"), ["*"]),
@@ -332,7 +333,7 @@ def initialize(root, dry_run=False, build_context=False, slug=None, refresh=Fals
         current = fingerprint(root, identity, slug)
         existing_assets = (root / PACK).exists() or (root / CONTEXT).exists()
         migration = prior is None and existing_assets
-        reusable_migration = migration and "AGENTS.md" not in changes and migration_current(root, slug)
+        reusable_migration = migration and agents_guidance_file(root) not in changes and migration_current(root, slug)
         context_issues = context_check(root, slug)
         provenance_issues = provenance_check(root)
         if provenance_issues or context_issues:

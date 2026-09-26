@@ -4,11 +4,21 @@
 
 ## 2026-09-26 Codexの作業別コード調査導線
 
-`aidev init` は既存の `AGENTS.md` を保全・backupして、Serena（定義・参照）、Graphify（構造・関係）、CRG（変更影響）の短い管理ブロックを作成・更新します。Terrainの任意管理ブロックは、場所不明の横断調査でpackを最初の候補探索に使い、未生成contextの `read-context` を要求しない案内へ修正しました。グローバルSkill・承認台帳は変更していません。
+### JustPass更新停止後の再受入（Ubuntu）
 
-Ubuntu / Python 3.14.3の全98 testsは96成功・Windows専用2件skip。既存 `AGENTS.md` のbyte保全、backup、再実行時の重複防止、不正markerでの書込み前停止、Terrain案内更新を確認しました。通常コマンドを更新後、JustPassで3providerの `aidev init` とTerrain `refresh` を実行しました。Codex照会後に一度 `aidev doctor` がfingerprint差を検出し、設定変更なしの `aidev init` で再構築しました。差の原因は特定できていません。最終doctorは `LOCAL_READY`、Terrain doctorは `TERRAIN_READY_CONTEXT_NOT_BUILT` / pack PASS / source_fresh trueです。context生成・外部LLM処理は行っていません。
+`aidev init` と任意のTerrain `init` / `refresh` は、ルートの非空 `AGENTS.override.md` があればその実効指示ファイルに管理ブロックを書き、なければ `AGENTS.md` を使うよう修正しました。両方の既存本文・backup・再実行時の重複防止をfixtureで確認しました。長い指示がCodexの読込み上限で切り詰められる可能性は残り、実セッションでの確認が必要です。Ubuntu / Python 3.14.3の全101 testsは99成功・Windows専用2件skip。通常のaidev導入実体も修正後sourceとhash一致です。Windows実機は未確認です。
 
-新規Codex CLIセッションでツール名を含まない依頼を実測しました。定義・参照ではSerenaの `find_symbol` と `find_referencing_symbols` を呼び、回答まで完了。構造調査ではGraphify `query` 4回がexit 0、仮定した変更影響ではCRG `get_minimal_context_tool` を呼び、場所不明の横断調査ではTerrain `doctor`、`grep-pack`、`read-pack-file` がexit 0でした。後の3セッションは能力選択と照会結果を確認した時点で中断しており、回答全体の完了や調査品質の受入ではありません。TerrainはCodexのread-only shellで一時ファイルを作れずdoctorがexit 2となり、workspace-write shellでソース・設定の変更を禁じた再試行で照会を確認しました。Codexが今後の全依頼で必ず同じ能力を選ぶ保証、Windows実機受入はありません。
+JustPassの安定したHEAD `c6df21b2bd9e01f53569eeae5bfd93dad0c8f1e8` で、両dry-runは設定変更予定なし。`aidev init` 後のdoctorは `LOCAL_READY`、`aidev terrain refresh` 後のdoctorは `TERRAIN_READY_CONTEXT_NOT_BUILT` / pack PASS / source_fresh trueです。Git working treeは再受入後もcleanでした。`terrain refresh` には `--dry-run` がなく、事前確認には `terrain init --dry-run` を使います。context生成・外部LLM処理は行っていません。
+
+新規Codex CLI実セッションをツール名なしで実施しました。場所不明の定義・参照追跡ではSerenaの `find_symbol` / `find_referencing_symbols`、構造調査はGraphifyの `query` / `path`、仮想変更の影響調査はCRG MCPの `get_minimal_context_tool` / `get_impact_radius_tool` / `query_graph_tool`、場所不明の横断調査はTerrainの `grep-pack` / `read-pack-file` を使い、いずれも実ソース照合と回答完了まで確認しました。CRGは `status=ok` / `head_matches_build=true` で、前回の `stale_graph` は解消。Terrain調査では対象Vitest 2件成功・38件skipも確認されました。
+
+既知hookの定義・参照を尋ねた自然文依頼では、Codexは標準検索を選んで回答しました。別の明示指定セッションでもSerena MCP接続を確認しています。親Codexから子の `codex exec` へ `CODEX_CI` / session IDを継承した最初の受入ではMCPツールが公開されず、受入用の新規セッションでこれらの変数を外して実測しました。設定がenabledでも毎回ツールが提供・選択される保証はありません。単純な既知ファイルの検索では標準検索を選ぶ設計です。`aidev doctor` の `codex_mcp=UNVERIFIED` は接続を検査しない設計のままです。
+
+`aidev init` はルートの実効指示ファイルを保全・backupして、Serena（定義・参照）、Graphify（構造・関係）、CRG（変更影響）の短い管理ブロックを作成・更新します。Terrainの任意管理ブロックは、場所不明の横断調査でpackを最初の候補探索に使い、未生成contextの `read-context` を要求しない案内へ修正しました。グローバルSkill・承認台帳は変更していません。
+
+当時のUbuntu / Python 3.14.3の全98 testsは96成功・Windows専用2件skip。既存 `AGENTS.md` のbyte保全、backup、再実行時の重複防止、不正markerでの書込み前停止、Terrain案内更新を確認しました。通常コマンドを更新後、JustPassで3providerの `aidev init` とTerrain `refresh` を実行しました。その後に別の更新でJustPassのHEADと入力が変わり、doctorは再び `NEEDS_INIT` / `TERRAIN_NEEDS_REFRESH` となりました。この段落のdoctor結果は更新前のスナップショットです。
+
+当時の新規Codex CLIセッションでツール名を含まない依頼を実測しました。定義・参照ではSerenaの `find_symbol` と `find_referencing_symbols` を呼び、回答まで完了。構造調査ではGraphify `query` 4回がexit 0、仮定した変更影響ではCRG `get_minimal_context_tool` を呼んだものの、結果は `status=not_ready` / `reason=stale_graph` で有効な影響回答ではありませんでした。場所不明の横断調査ではTerrain `doctor`、`grep-pack`、`read-pack-file` がexit 0でした。後の3セッションは回答前に中断しました。TerrainはCodexのread-only shellで一時ファイルを作れずdoctorがexit 2となり、workspace-write shellでソース・設定の変更を禁じた再試行で照会を確認しました。Codexが今後の全依頼で必ず同じ能力を選ぶ保証、Windows実機受入はありません。
 
 ## 2026-09-26 Terrain CLIヘルプの案内修正
 

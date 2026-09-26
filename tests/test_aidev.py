@@ -143,6 +143,30 @@ class InitTests(unittest.TestCase):
             aidev.initialize(self.root)
         self.assertEqual(snapshot(self.root), before)
 
+    def test_nonempty_override_receives_guidance_without_touching_agents(self):
+        self.write("AGENTS.md", "# Existing root rules\n")
+        self.write("AGENTS.override.md", "# Effective override\n")
+        self.write("code.py", "def answer(): return 42\n")
+        build, _ = self.fake_build()
+        with build:
+            result = aidev.initialize(self.root)
+            self.assertEqual((self.root / "AGENTS.md").read_text(), "# Existing root rules\n")
+            content = (self.root / "AGENTS.override.md").read_text()
+            self.assertTrue(content.startswith("# Effective override\n"))
+            self.assertEqual(content.count(aidev.CODE_START), 1)
+            self.assertEqual((Path(result["backup"]) / "AGENTS.override.md").read_text(), "# Effective override\n")
+            aidev.initialize(self.root)
+            self.assertEqual((self.root / "AGENTS.override.md").read_text(), content)
+
+    def test_empty_override_uses_agents(self):
+        self.write("AGENTS.override.md", " \n")
+        self.write("code.py", "def answer(): return 42\n")
+        build, _ = self.fake_build()
+        with build:
+            aidev.initialize(self.root)
+        self.assertEqual((self.root / "AGENTS.override.md").read_text(), " \n")
+        self.assertIn(aidev.CODE_START, (self.root / "AGENTS.md").read_text())
+
     def test_explicit_disabled_policy_is_not_overwritten(self):
         self.write(".codex/dev-capabilities.json", json.dumps({"schema_version": 1, "capabilities": {"symbol_semantics": []}}))
         before = snapshot(self.root)

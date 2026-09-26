@@ -143,6 +143,12 @@ def read(root, relative):
     return p.read_bytes()
 
 
+def agents_guidance_file(root):
+    """Choose the root instruction file Codex actually reads."""
+    override = read(root, "AGENTS.override.md")
+    return "AGENTS.override.md" if override and override.strip() else "AGENTS.md"
+
+
 def atomic(path, data):
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     mode = stat.S_IMODE(path.stat().st_mode) if path.exists() else 0o600
@@ -433,7 +439,8 @@ def plan(root, bins, files):
             raise Problem(f"既存の能力選択と衝突: {cap}。既存の無効化・別provider指定を保全しました。")
         policy["capabilities"][cap] = wanted
     stage(".codex/dev-capabilities.json", original if original and json.loads(original) == policy else js(policy).encode())
-    stage("AGENTS.md", code_guidance(read(root, "AGENTS.md")))
+    guidance_file = agents_guidance_file(root)
+    stage(guidance_file, code_guidance(read(root, guidance_file)))
     for relative, lines in [(".gitignore", GIT_EXCLUDES), (".graphifyignore", EXCLUDES), (".code-review-graphignore", EXCLUDES)]:
         stage(relative, add_lines(read(root, relative), lines))
     stage(".aidev/.gitignore", add_lines(read(root, ".aidev/.gitignore"), ["*"]))

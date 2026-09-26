@@ -295,6 +295,19 @@ class TerrainTests(unittest.TestCase):
         self.assertNotIn('old guidance', (self.root / 'AGENTS.md').read_text())
         self.assertIn('contextが生成済みで新しい場合だけ', (self.root / 'AGENTS.md').read_text())
 
+    def test_nonempty_override_receives_terrain_guidance(self):
+        (self.root / 'AGENTS.md').write_text('# Other root rules\n')
+        (self.root / 'AGENTS.override.md').write_text('# Effective rules\n')
+        self.init()
+        self.assertEqual((self.root / 'AGENTS.md').read_text(), '# Other root rules\n')
+        content = (self.root / 'AGENTS.override.md').read_text()
+        self.assertTrue(content.startswith('# Effective rules\n'))
+        self.assertEqual(content.count(provider.START), 1)
+        backups = list((self.root / '.aidev/terrain/backups').glob('*/AGENTS.override.md'))
+        self.assertEqual(backups[0].read_text(), '# Effective rules\n')
+        self.init()
+        self.assertEqual((self.root / 'AGENTS.override.md').read_text(), content)
+
     def test_manual_guidance_never_claimed(self):
         original = '# Rules\n\n## Terrain Knowledge Layer\nmanual instructions\n'
         (self.root / 'AGENTS.md').write_text(original)

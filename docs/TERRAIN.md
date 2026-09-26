@@ -139,7 +139,7 @@ Git管理外:
 
 既存assetsは先に監査します。legacy metadataのHEADとcleanな入力が一致し、AGENTSの入力変更も不要ならpack/contextを再利用し、local registry・config・stateだけを整備します。dirty/untracked入力のlineageを証明できない場合はpackを再構築し、contextをstaleとして保持します。migrationだけでは `--build-context` があってもLLMを呼びません。必要なら次のrefreshで明示更新してください。
 
-AGENTSの既存本文を保全し、aidev管理marker内だけを更新します。markerなしの既存 `## Terrain Knowledge Layer` はmanualとして保全し、重複追加しません。
+ルートの非空 `AGENTS.override.md` があればそちら、なければ `AGENTS.md` の既存本文を保全し、aidev管理marker内だけを更新します。markerなしの既存 `## Terrain Knowledge Layer` はmanualとして保全し、重複追加しません。長い指示はCodex側で切り詰められる場合があるため、実利用は新規セッションで確認します。
 
 変更前のAGENTS/configと共有Terrain assetsはrun別backupへ保存します。partial failureのログと以前のstateを残します。`--force` が正常context本文とmetadataを両方削除した後に失敗した場合、未知の出力がなければ以前のpairを排他的な新規作成で復元し、再実行できます。部分出力・並行変更があれば自動上書きせず、正常pairのbackup先と手動復旧手順を表示します。現出力を別名で保全し、本文とmetadataの両方を照合・復元してから再実行してください。利用者sourceをrollbackせず、大きな一括transactionも行いません。不正な既存context/provenanceは自動修復せず監査で停止します。backupを確認して利用者が訂正してください。
 
