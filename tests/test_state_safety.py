@@ -242,14 +242,15 @@ class StateSafetyTests(unittest.TestCase):
         self.assertIsNotNone(before[".codex/config.toml"])
 
     def test_backup_records_before_hash_but_does_not_claim_a_whole_directory(self):
-        original = b'# user setting\nmodel="custom"\n'
-        self.write(".codex/config.toml", original.decode())
+        original = '# user setting\nmodel="custom"\n'
+        self.write(".codex/config.toml", original)
+        before = (self.root / ".codex/config.toml").read_bytes()
         result = aidev.initialize(self.root)
         backup = Path(result["backup"])
         receipt = json.loads((backup / "changes.json").read_text())
         entry = receipt[".codex/config.toml"]
-        self.assertEqual(entry["before_sha256"], aidev.digest(original))
-        self.assertEqual((backup / ".codex/config.toml").read_bytes(), original)
+        self.assertEqual(entry["before_sha256"], aidev.digest(before))
+        self.assertEqual((backup / ".codex/config.toml").read_bytes(), before)
         self.assertIsNone(receipt["AGENTS.md"]["before_sha256"])
         self.assertNotIn(".serena", receipt)
 
