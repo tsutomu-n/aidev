@@ -73,6 +73,17 @@ class RemoveTests(unittest.TestCase):
         self.assertEqual(ownership.remove(self.root)['status'], 'REMOVED')
         self.assertEqual((self.root / '.gitignore').read_bytes(), b'user\r\n\r\nend\r\n')
 
+    def test_reencoded_managed_block_is_preserved(self):
+        block = b'<!-- aidev:code-intelligence:start -->\nowned\n<!-- aidev:code-intelligence:end -->'
+        self.put('AGENTS.md', block + b'\n')
+        ownership.record_block(self.root, 'core', 'AGENTS.md', '<!-- aidev:code-intelligence:start -->',
+                               '<!-- aidev:code-intelligence:end -->', block)
+        rewritten = (block + b'\nUser note\n').replace(b'\n', b'\r\n')
+        self.put('AGENTS.md', rewritten)
+        result = ownership.remove(self.root)
+        self.assertEqual(result['status'], 'REMOVED_WITH_PRESERVED')
+        self.assertEqual((self.root / 'AGENTS.md').read_bytes(), rewritten)
+
     def test_json_members_preserve_user_keys(self):
         self.put('.codex/dev-capabilities.json', b'{"capabilities":{"symbol_semantics":["serena"],"user":1}}\n')
         ownership.record_json_members(self.root, 'core', '.codex/dev-capabilities.json', None, {'/capabilities/symbol_semantics': ['serena']})

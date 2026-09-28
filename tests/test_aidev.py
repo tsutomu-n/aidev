@@ -114,7 +114,8 @@ class InitTests(unittest.TestCase):
         self.write(".codex/config.toml", 'model = "user"\n')
         with self.fake_build()[0]:
             self.assertEqual(aidev.initialize(self.root)["status"], "LOCAL_READY")
-        self.write("AGENTS.md", (self.root / "AGENTS.md").read_text() + "\nUser note\n")
+        agents = self.root / "AGENTS.md"
+        agents.write_bytes(agents.read_bytes() + b"\nUser note\n")
         self.write("graphify-out/user.txt", "user")
         before = snapshot(self.root)
         plan = ownership.remove(self.root, dry_run=True)
