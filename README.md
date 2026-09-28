@@ -13,7 +13,7 @@ aidev init
 aidev doctor --json
 ```
 
-`--dry-run` は変更予定だけを表示します。`init` は設定と索引を作成・更新し、変更前の設定テキストをバックアップします。`doctor` は対象リポジトリを書き換えずに診断します。`LOCAL_READY` は、CodexからのMCP接続や解析の網羅性まで保証する判定ではありません。
+`--dry-run` は変更予定だけを表示します。`init` は設定と索引を作成・更新し、変更前の設定テキストをバックアップします。`doctor` は対象リポジトリを書き換えずに診断します。撤去前には `aidev remove --dry-run` で安全に撤去できる項目と保全する項目を確認し、`aidev remove` を実行します。Terrainだけなら `aidev terrain remove --dry-run` → `aidev terrain remove` です。`LOCAL_READY` は、CodexからのMCP接続や解析の網羅性まで保証する判定ではありません。
 
 新規Codexセッションで、実際の定義・参照・構造・変更影響の照会を確認してください。単純な検索や既知ファイルの小修正まで、すべての解析ツールを経由する必要はありません。
 
@@ -27,7 +27,7 @@ aidev doctor --json
 | Windowsでの導入 | [Windowsガイド](docs/WINDOWS.md) |
 | 検証済み範囲と未検証事項 | [実装・検証状態](docs/STATUS.md) |
 
-Python 3.11以降とGit、所定の版の解析ツールが必要です。既存3providerを自動インストールする機能ではありません。Terrainには別途runtimeの準備が必要で、WindowsでのTerrain操作は未サポートです。OS・版ごとの受入範囲は上記資料で確認してください。
+Python 3.11以降とGit、所定の版の解析ツールが必要です。既存3providerを自動インストールする機能ではありません。Terrainには別途runtimeの準備が必要で、WindowsでのTerrain runtime操作は未サポートです。Repo-localな `terrain remove` はruntimeを起動せず実行できます。OS・版ごとの受入範囲は上記資料で確認してください。
 
 ## Terrainと既存3providerの境界
 
@@ -41,4 +41,4 @@ Terrainは探索用の案内・索引です。重要な判断や編集の前に�
 
 構築記録がない旧版の状態と、新しい構築記録の欠落・不正を区別します。不正な状態ファイルを正常扱いしたり、自動で削除したりしません。既存3providerの設定バックアップにある `changes.json` は変更前の `before_sha256` と予定する変更後の `after_sha256` を記録します。この記録だけで、導入前から存在した設定やディレクトリ全体の所有を証明したことにはなりません。
 
-自動撤去・全体ロールバックのコマンドはまだありません。`.codex/`、`.serena/`、`.terrain/`、`.aidev/` を一括削除しないでください。既存設定、利用者の文書・作業記録、バックアップが混在し得ます。`backup:` は変更前の設定テキストの保存先であり、ソース全体・索引・会話履歴のバックアップではありません。
+`remove` は導入前のRepo全体へ戻す操作ではなく、ownership台帳や明示markerで証明できる部分だけを差し引きます。変更済み・ownership不明の項目は保全し、partialとして報告します。`.codex/`、`.serena/`、`.terrain/`、`.aidev/` を一括削除しないでください。既存設定、利用者の文書・作業記録、バックアップが混在し得ます。`backup:` は変更前の設定テキストの保存先であり、ソース全体・索引・会話履歴のバックアップではありません。

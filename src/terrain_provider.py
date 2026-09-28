@@ -225,49 +225,71 @@ def registry_check(root, slug):
     return bool(registry and registry.get("projects") == [{"slug": slug, "repo_path": str(root)}])
 
 
-def guidance(old):
+def guidance(old, root=None, name=None):
     text = (old or b"").decode("utf-8")
     if START in text or END in text:
         if text.count(START) != 1 or text.count(END) != 1 or text.index(START) > text.index(END):
             raise Problem("Terrain AGENTS管理markerが不正です")
+        current = text[text.index(START):text.index(END) + len(END)].encode()
+        if current != GUIDANCE.encode():
+            import ownership
+            receipt = ownership.load(root) if root is not None else None
+            known = next((e for e in receipt['components']['terrain']['entries'].values()
+                          if e['kind'] == 'block' and e['path'] == name and e['start_marker'] == START), None) if receipt else None
+            if known is None or ownership.digest(current) != known['owned_block_sha256']:
+                raise Problem("手動変更されたTerrain AGENTS管理ブロックを保全しました")
         return (text[:text.index(START)] + GUIDANCE + text[text.index(END) + len(END):]).encode(), "managed"
     if re.search(r"^##\s+Terrain Knowledge Layer\s*$", text, re.MULTILINE):
         return old, "existing-manual"
     return (text + ("\n\n" if text else "") + GUIDANCE + "\n").encode(), "managed"
 
 
-def append_rules(old, rules):
+def append_rules(old, rules, name=None, root=None):
     text = (old or b"").decode()
     missing = [rule for rule in rules if rule not in text.splitlines()]
+    if name and missing:
+        start, end = f"# aidev:terrain:{name}:start", f"# aidev:terrain:{name}:end"
+        if start in text or end in text:
+            if text.count(start) != 1 or text.count(end) != 1 or text.index(start) > text.index(end):
+                raise Problem("Terrain ignore管理markerが不正です")
+            old_block = text[text.index(start):text.index(end) + len(end)]
+            if root is not None:
+                import ownership
+                if not ownership.block_matches_receipt(root, 'terrain', name, start, old_block.encode()):
+                    raise Problem("手動変更されたTerrain ignore管理ブロックを保全しました")
+            return (text[:text.index(start)] + start + "\n" + "\n".join(rules) + "\n" + end + text[text.index(end) + len(end):]).encode()
+        return (text + ("\n" if text and not text.endswith("\n") else "") + start + "\n" + "\n".join(missing) + "\n" + end + "\n").encode()
     return (text + ("\n" if text and not text.endswith("\n") else "") + "\n".join(missing) + ("\n" if missing else "")).encode()
 
 
 def prepare(root, slug):
     guidance_file = agents_guidance_file(root)
-    guide, mode = guidance(read(root, guidance_file))
+    guide, mode = guidance(read(root, guidance_file), root, guidance_file)
     changes = {
         guidance_file: guide,
         CONFIG: js({"schema_version": 1, "managed_by": "aidev", "slug": slug, "terrain_version": runtime.TERRAIN_VERSION}).encode(),
-        ".gitignore": append_rules(read(root, ".gitignore"), ["/.aidev/"]),
-        ".aidev/.gitignore": append_rules(read(root, ".aidev/.gitignore"), ["*"]),
-        ".terrain/.gitignore": append_rules(read(root, ".terrain/.gitignore"), LOCAL_RULES),
+        ".gitignore": append_rules(read(root, ".gitignore"), ["/.aidev/"], ".gitignore", root),
+        ".aidev/.gitignore": append_rules(read(root, ".aidev/.gitignore"), ["*"], ".aidev/.gitignore", root),
+        ".terrain/.gitignore": append_rules(read(root, ".terrain/.gitignore"), LOCAL_RULES, ".terrain/.gitignore", root),
     }
     return {name: value for name, value in changes.items() if value != read(root, name)}, mode
 
 
-def backup_write(root, changes, run_id, previous=None, already_written=()):
+def backup_write(root, changes, run_id, previous=None, already_written=(), on_write=None):
     previous = previous if previous is not None else {name: read(root, name) for name in changes}
     backup = safe_path(root, ".aidev/terrain/backups/" + run_id)
     for name, raw in previous.items():
         if raw is not None:
             atomic(safe_path(root, str((backup / name).relative_to(root))), raw)
-    atomic(backup / "changes.json", js({name: {"existed": raw is not None, "after_sha256": digest(changes[name])} for name, raw in previous.items()}).encode())
+    atomic(backup / "changes.json", js({name: {"existed": raw is not None, "before_sha256": digest(raw) if raw is not None else None, "after_sha256": digest(changes[name])} for name, raw in previous.items()}).encode())
     for name, value in changes.items():
         if name in already_written:
             continue
         if read(root, name) != previous[name]:
             raise Problem(f"並行設定変更を保全しました: {root / name}")
         atomic(safe_path(root, name), value)
+        if on_write is not None:
+            on_write(name, previous[name], value, str((backup / name).relative_to(root)) if previous[name] is not None else None)
 
 
 def snapshot_assets(root, run_id):
@@ -350,14 +372,25 @@ def initialize(root, dry_run=False, build_context=False, slug=None, refresh=Fals
         stable_inputs = {name: runtime.file_hash(root / name) if (root / name).is_file() else None for name in input_files(root) if name not in changes}
         # Establish an ignore barrier before saving any original user bytes.
         before_config = {name: read(root, name) for name in changes}
+        import ownership
+        before_local = {name: read(root, name) for name in (STATE, REGISTRY, PACK_META, CONTEXT, CONTEXT_META, ".terrain/agent/meta-inputs.json")}
+        before_pack_hash = ownership._file_digest(root, PACK)
+        existed_dirs = {name: (root / name).exists() for name in (".aidev/terrain/backups", ".aidev/terrain/logs", ".terrain/agent", ".terrain/.meta")}
+        before_trees = {name: ownership._tree(root, name) for name, existed in existed_dirs.items() if existed}
+        def receipt(name, old, new, saved):
+            ownership.record_change(root, "terrain", name, old, new, saved)
         barrier = ".aidev/.gitignore"
         if barrier in changes:
             atomic(safe_path(root, barrier), changes[barrier])
+            if before_config[barrier] is None:
+                receipt(barrier, None, changes[barrier], None)
         from aidev import ensure_ignored
         ensure_ignored(root, [".aidev/terrain/backups/check", ".aidev/terrain/logs/check"])
         run_id = str(time.time_ns())
         snapshot_assets(root, run_id)
-        backup_write(root, changes, run_id, before_config, (barrier,))
+        backup_write(root, changes, run_id, before_config, (barrier,), receipt)
+        if barrier in changes and before_config[barrier] is not None:
+            receipt(barrier, before_config[barrier], changes[barrier], str((root / ".aidev/terrain/backups" / run_id / barrier).relative_to(root)))
         ensure_ignored(root, [PACK, PACK_META, ".terrain/agent/meta-inputs.json", ".terrain/.meta/check"])
         after_inputs = {name: runtime.file_hash(root / name) if (root / name).is_file() else None for name in input_files(root) if name not in changes}
         if stable_inputs != after_inputs:
@@ -424,7 +457,25 @@ def initialize(root, dry_run=False, build_context=False, slug=None, refresh=Fals
                      "context_git_head": head if built else (prior or {}).get("context_git_head"),
                      "context_snapshot_id": (digest(js(context_identity).encode()) if context_identity else
                                              (prior or {}).get("context_snapshot_id") if hashes[CONTEXT] else None)}
-            atomic(safe_path(root, STATE), js(state).encode())
+            state_bytes = js(state).encode()
+            atomic(safe_path(root, STATE), state_bytes)
+            ownership.record_file(root, "terrain", STATE, before_local[STATE], state_bytes, component="terrain.local")
+            ownership.record_generated_file(root, "terrain", PACK, before_pack_hash, component="terrain.local")
+            for name in (REGISTRY, PACK_META, CONTEXT, CONTEXT_META, ".terrain/agent/meta-inputs.json"):
+                current_bytes = read(root, name)
+                if current_bytes is not None and (before_local[name] is None or ownership.recorded(root, "terrain", "file", name)):
+                    saved = None
+                    if name in (CONTEXT, CONTEXT_META) and before_local[name] is not None:
+                        candidate = f".aidev/terrain/backups/{run_id}/assets/{name}"
+                        if read(root, candidate) == before_local[name]:
+                            saved = candidate
+                    ownership.record_file(root, "terrain", name, before_local[name], current_bytes, saved, component="terrain.local" if name in (REGISTRY, PACK_META, ".terrain/agent/meta-inputs.json") else "terrain.shared")
+            for name, existed in existed_dirs.items():
+                if not existed or ownership.recorded(root, "terrain", "tree", name):
+                    try:
+                        ownership.record_tree(root, "terrain", name, False, component="terrain.local", before_identity=before_trees.get(name))
+                    except ownership.OwnershipError:
+                        pass
             return {"status": "TERRAIN_READY" if context_current else ("TERRAIN_NEEDS_CONTEXT_REFRESH" if hashes[CONTEXT] else "TERRAIN_READY_CONTEXT_NOT_BUILT"), "indexes": "reused" if reused else "built", "context": "built" if built else ("reused" if context_current else "stale" if hashes[CONTEXT] else "not-built"), "migration": migration, "agents_guidance": agents, "backup": str(root / ".aidev/terrain/backups" / run_id)}
         except (Problem, OSError, ValueError):
             atomic(safe_path(root, f".aidev/terrain/logs/{run_id}-failure.json"), js({"status": "FAILED", "operation": "refresh" if refresh else "init", "state_committed": False}).encode())
@@ -565,6 +616,9 @@ def add_parser(sub):
         if name == "init":
             parser.add_argument("--dry-run", action="store_true", help="入力と変更予定を検査し、書き込まずTerrainも起動しない")
             parser.add_argument("--slug", help="初回のRepo識別名（省略時はorigin名またはRepo名）")
+    remove_parser = commands.add_parser("remove", help="Terrainの証明済みRepo-local所有物を撤去")
+    remove_parser.add_argument("--dry-run", action="store_true")
+    remove_parser.add_argument("--json", action="store_true")
     commands.add_parser("doctor", help="Terrainを起動しない書込みなし診断").add_argument("--json", action="store_true")
     tools = commands.add_parser("tools").add_subparsers(dest="tool", required=True)
     tools.add_parser("read-context").add_argument("--section")
@@ -579,6 +633,16 @@ def add_parser(sub):
 
 
 def dispatch(args):
+    if args.terrain_command == "remove":
+        import ownership
+        root = repo_root(Path.cwd())
+        if args.dry_run:
+            result = ownership.remove(root, dry_run=True, terrain_only=True)
+        else:
+            with lock(root):
+                result = ownership.remove(root, terrain_only=True)
+        print(js(result), end="")
+        return 2 if result["status"] == "ERROR" else 1 if result["status"] in ("REMOVE_PARTIAL", "REMOVED_WITH_PRESERVED") else 0
     if runtime.WINDOWS:
         raise Problem("WindowsでのTerrain runtimeは未サポートです。正式検証対象はUbuntu 24.04 x86_64です。既存3providerは引き続き利用できます")
     cmd = args.terrain_command

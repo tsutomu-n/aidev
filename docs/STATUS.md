@@ -2,6 +2,22 @@
 
 入口：[/home/tn/projects/aidev/README.md](../README.md) ／ 操作手順：[/home/tn/projects/aidev/docs/USER_GUIDE.md](USER_GUIDE.md)
 
+## 2026-09-26 Repo-local remove / ownership 実装候補
+
+2026-09-27の公開前重点レビューでは、R1の再init時の手動変更ブロック、R3の残存ローカル情報のGit除外、R4の改変台帳の任意path指定を修正しました。R1の生成treeへの未知child取り込み、R2のcore/Terrain共有AGENTSを両順序で部分・全撤去、R5の部分write報告を隔離fixtureで確認しました。削除直前のtree再照合も追加しました。当時の候補のUbuntu / Python 3.13.12全suiteは全150件中148件成功、Windows専用2件skip。Python 3.11はこの環境で実行ファイルを確認できず、変更後の同版全suiteは未実行です。候補は未commit・未pushで、以下の2026-09-26受入記録は修正前の結果です。
+
+2026-09-28の追加レビューでは、新規作成後にGit追跡された `.terrain/aidev.json` と `AGENTS.md` の削除を隔離fixtureで再現し、前者は保全、後者は管理ブロックだけ差し引いてファイルを残すよう修正しました。Ubuntu / Python 3.13.12の最終候補は全151件中149件成功、Windows専用2件skip。Terrain隔離テスト38件とremove専用テスト25件も成功しました。候補SHAに対するCI、Windows実機、実provider受入は未実施です。
+
+公開前のローカル固定確認では、既存の Python 3.11.14 実体で同じ実装・テストの全151件を実行し、149件成功・Windows専用2件skipでした。前記の Python 3.13.12 と Terrain 隔離テストの結果は、候補manifestの内容一致で対象ファイルが変わっていないことを確認して引き継ぎました。候補SHAに対するCIは未実行です。
+
+受領した `origin/main` の `7b3f383439b9ad129ad14374840bd6dd51cf924a` では `AGENTS.md` が空なのに、公開manifestは旧hashを記録しており不一致です。この候補worktreeは `dd724e9768c85a63514fbc7372b48ebcf3f586db` を基準とし、空ファイル化コミットを取り込んでいません。候補のmanifest更新は受領時不一致の解消と混同しません。
+
+基準は `origin/main` の `dd724e9768c85a63514fbc7372b48ebcf3f586db`。別worktreeで実装し、元worktreeの未commit `AGENTS.md` は変更していません。`aidev remove` / `aidev terrain remove` はownership台帳と現在状態を照合して証明済みの範囲を撤去し、曖昧な項目を保全します。`--force` はありません。通常導入版の更新、commit、push、merge、releaseは行っていません。
+
+Ubuntu 25.10 x86_64 のPython 3.11/3.13で全Python suiteは各143件成功・Windows専用2件skip。Terrain runtime契約の隔離実行は固定upstream baseline比較、patch後focused tests、release build、behavior smokeが成功しました。平坦なrelease fixtureに新moduleを含め、そこから `remove --help` を起動しました。disposableな実Git Repoでcoreのinit後に利用者が指示文と生成treeを変更し、dry-runのbytes不変、設定の元bytes復元、利用者変更とpartial台帳の保全を確認しました。証拠は `verification/remove-acceptance-20260926.json`（Git除外）です。
+
+Ubuntu 24.04 / Windows × Python 3.11/3.13のCI matrixは現行workflowに含まれますが、この未push差分に対するGitHub CIは未実行です。Windows実機、実providerを使う別Repoでのremove、実LLM、通常インストール版への反映は未検証です。旧版で台帳がないRepoは明示markerの完全一致以外を保全し、backup chainの自動再構成は初版で実装していません。partialは正常な安全側の結果です。
+
 ## 2026-09-26 索引の構築記録と統合診断
 
 `aidev doctor --json` にSerena・Graphify・CRG・任意導入のTerrainを別々に表示し、診断時刻、構築成功日時、構築時HEAD、入力fingerprint、成果物hash、`snapshot_id` を追加しました。旧stateの日時・IDは不明のまま扱います。Serenaの有効なpickleでも内容hashが変われば更新を要求し、CRG DB自身のHEAD記録も照合します。Terrainのpackとcontextは別記録です。生成案内は、必要な索引だけを確認し、条件が安全なときにdry-run後のローカル更新を同じ入力へ一度試すよう変更しました。contextのLLM生成は明示依頼時だけです。

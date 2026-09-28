@@ -162,6 +162,9 @@ class CheckoutBundleTests(unittest.TestCase):
             with patch.object(install, 'TARGET', Path(folder)):
                 release = install.stage_release(install.CHECKOUT_ROOT, install.FILES)
                 self.assertEqual((release / 'aidev.py').read_bytes(), (install.CHECKOUT_ROOT / 'src/aidev.py').read_bytes())
+                self.assertEqual((release / 'ownership.py').read_bytes(), (install.CHECKOUT_ROOT / 'src/ownership.py').read_bytes())
+                help_result = subprocess.run([sys.executable, '-B', str(release / 'aidev.py'), 'remove', '--help'], capture_output=True, text=True)
+                self.assertEqual(help_result.returncode, 0, help_result.stderr)
                 self.assertIn('](../src/aidev.py)', (install.CHECKOUT_ROOT / 'docs/TECHNICAL.md').read_text(encoding='utf-8'))
                 self.assertIn('](aidev.py)', (release / 'TECHNICAL.md').read_text(encoding='utf-8'))
 

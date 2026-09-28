@@ -180,3 +180,11 @@ python3 /home/tn/projects/aidev/src/install.py
 このソースの版表示は `aidev 0.3.0` です。既にaidevを導入済みで、確認したソースへ更新する場合は `python3 /home/tn/projects/aidev/src/install.py --upgrade` を使います。管理外のコマンドや利用者が変更したファイルにより停止した場合は、その配置を保全して原因を確認します。Gitでソースを更新しただけでは、通常利用するコマンドは更新されません。
 
 詳しい設定と保存先は [技術資料](TECHNICAL.md)、Windowsの導入・受入は [Windows向け手順](WINDOWS.md)、任意機能のTerrainは [Terrainの説明](TERRAIN.md)、この環境で実施した受入の範囲は [状態と検証記録](STATUS.md) を参照してください。
+
+## Repo-localの設定を撤去する
+
+対象Gitリポジトリのルートで `aidev remove --dry-run` を実行し、`SAFE_*` と `PRESERVE_*` の一覧を確認します。続けて `aidev remove` を実行すると、証明済みのcoreとTerrainの設定・生成物だけを撤去します。Terrainだけなら `aidev terrain remove --dry-run` → `aidev terrain remove` です。`--json` でも結果を取得できます。
+
+`REMOVE_READY` / `REMOVED` は終了コード0、`REMOVE_PARTIAL` / `REMOVED_WITH_PRESERVED` は1、`ERROR` は2です。旧版のRepoなどで所有権を証明できないファイルは残ります。保全項目は一覧で確認し、必要なら利用者が別途判断してください。`remove` はGitの追跡・履歴やmachine-levelのaidev/provider/Terrain runtimeを変更しません。applyで共有設定を変更する場合は、変更前bytesを私有の一時ディレクトリへ保存し、結果の `recovery_backup` に場所を返します。この退避は自動削除しません。
+
+利用中のCodex・MCP・索引作成プロセスを終了してから実撤去してください。未知の生成child、変更済みpack、復旧用backup等が残る場合は、Git除外規則も保全します。`REMOVED_WITH_PRESERVED` の一覧では、撤去済みの連携と保全した情報・除外規則を別々に確認してください。再initで手動変更済みの管理ブロックが見つかると、内容を保全して停止します。

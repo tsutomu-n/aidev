@@ -73,6 +73,27 @@ class TerrainTests(unittest.TestCase):
     def init(self, **kwargs):
         return provider.initialize(self.root, slug='fixture', **kwargs)
 
+    def test_terrain_remove_routes_before_windows_runtime_gate(self):
+        import io
+        from contextlib import redirect_stdout
+        args = argparse.Namespace(terrain_command='remove', dry_run=True, json=True)
+        with patch.object(runtime, 'WINDOWS', True), patch.object(provider, 'repo_root', return_value=self.root), redirect_stdout(io.StringIO()) as output:
+            code = provider.dispatch(args)
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(output.getvalue())['status'], 'NOT_INSTALLED')
+
+    def test_terrain_remove_without_runtime_invocation(self):
+        import ownership
+        self.assertEqual(self.init()["status"], "TERRAIN_READY_CONTEXT_NOT_BUILT")
+        calls = len(self.calls)
+        before = snapshot(self.base)
+        self.assertEqual(ownership.remove(self.root, dry_run=True, terrain_only=True)["status"], "REMOVE_PARTIAL")
+        self.assertEqual(snapshot(self.base), before)
+        self.assertEqual(ownership.remove(self.root, terrain_only=True)["status"], "REMOVED_WITH_PRESERVED")
+        self.assertEqual(len(self.calls), calls)
+        self.assertTrue(self.binary.exists())
+        self.assertFalse((self.root / provider.CONFIG).exists())
+
     def test_dry_run_and_doctor_write_nothing_and_never_spawn(self):
         before = snapshot(self.base)
         self.assertEqual(self.init(dry_run=True)['status'], 'PLAN')
@@ -301,11 +322,13 @@ class TerrainTests(unittest.TestCase):
         self.assertTrue((self.root / 'AGENTS.md').read_bytes().startswith(original))
         backups = list((self.root / '.aidev/terrain/backups').glob('*/AGENTS.md'))
         self.assertEqual(backups[0].read_bytes(), original)
+        receipt = json.loads((backups[0].parent / 'changes.json').read_text())
+        self.assertEqual(receipt['AGENTS.md']['before_sha256'], aidev.digest(original))
         text = (self.root / 'AGENTS.md').read_text().replace('derived navigation/index', 'old guidance')
         (self.root / 'AGENTS.md').write_text(text)
-        self.init()
-        self.assertNotIn('old guidance', (self.root / 'AGENTS.md').read_text())
-        self.assertIn('contextが生成済みで新しい場合だけ', (self.root / 'AGENTS.md').read_text())
+        with self.assertRaisesRegex(aidev.Problem, '手動変更されたTerrain AGENTS管理ブロック'):
+            self.init()
+        self.assertEqual((self.root / 'AGENTS.md').read_text(), text)
 
     def test_nonempty_override_receives_terrain_guidance(self):
         (self.root / 'AGENTS.md').write_text('# Other root rules\n')

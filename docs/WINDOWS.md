@@ -123,7 +123,7 @@ Windowsでは実際の排他ロック、Job Objectによる孫プロセス終了
 
 ## Terrain 0.3.0の対応範囲
 
-WindowsのTerrain runtimeは未サポートです。`aidev terrain` のhelpは参照できますが、install/setup/init/refresh/doctor/toolsはrepo・global状態の変更前に停止します。native exeの登録・buildをWindowsの通常手順として実行しないでください。
+WindowsのTerrain runtimeは未サポートです。`aidev terrain` のhelpは参照できますが、install/setup/init/refresh/doctor/toolsはrepo・global状態の変更前に停止します。Repo-localな `aidev terrain remove` はruntimeを起動せず実行できます。native exeの登録・buildをWindowsの通常手順として実行しないでください。
 
 context専用ACP修正と固定qualificationはLinux候補向けです。Ubuntuでの実LLM受入成功はWindowsの受入・導入成功を意味しません。qualificationの絶対パス・依存hashを手編集して起動拒否を迂回しないでください。
 

@@ -2,7 +2,7 @@
 
 Terrainは任意導入のderived navigation/index layerです。Code、tests、schemas、config、lockfiles、CI、CLI helpを正本とします。
 
-正式runtime検証対象は **Ubuntu 24.04 x86_64 / Python 3.11・3.13** です。runtime専用CIはPython 3.13、Python回帰CIは両版で実行します。WindowsのTerrain通常操作は副作用前に未サポートで停止し、helpは利用できます。既存aidevの3providerとWindows Python CIは維持します。他OS・architectureへ検証結果を一般化しません。
+正式runtime検証対象は **Ubuntu 24.04 x86_64 / Python 3.11・3.13** です。runtime専用CIはPython 3.13、Python回帰CIは両版で実行します。WindowsのTerrain runtime操作は副作用前に未サポートで停止します。Repo-localな `terrain remove` とhelpはruntimeなしで利用できます。既存aidevの3providerとWindows Python CIは維持します。他OS・architectureへ検証結果を一般化しません。
 
 ## 目的と使い分け
 
@@ -163,3 +163,7 @@ Pythonのfixture testsは既存Ubuntu/Windows × Python 3.11/3.13 workflowに含
 live Codex ACPは通常CIに含めません。実認証・外部送信許可のあるdisposable fixtureで別受入とし、未実施はUNVERIFIEDです。live受入では生成前後のsource fingerprintとGit statusを保存・比較し、source modificationが0であることを実測します。mode設定だけではsource不変の証明にしません。固定候補の受入後、移設済み依存と通常launcher・通常CODEX_HOMEでも実LLM受入を完了しました。非LLM qualificationの隔離設定、導入前の候補受入、今回の通常受入、Windows未受入を区別し、結果は [/home/tn/projects/aidev/docs/STATUS.md](STATUS.md) に記録します。shell sandboxはMCP・hook自身の作用を防ぎません。
 
 submodule入力、symlink/reparse/hardlinkを含む入力・生成先は初版では停止します。read-pack-fileはupstreamの圧縮packに基づく探索であり、live sourceの厳密転記ではありません。自動redaction、watch daemon、Git hook、Litho/SDD自動生成、plugin frameworkはありません。
+
+## Terrainだけを撤去する
+
+対象Repoのルートで `aidev terrain remove --dry-run` を確認してから `aidev terrain remove` を実行します。core 3providerは維持し、Terrain runtimeの登録・binaryには触れません。変更済みcontext、手動設定、追跡済みlocal生成物、未知childを含むtreeは保全し、partialを返します。`--json` で項目ごとの判定も確認できます。

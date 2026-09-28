@@ -82,6 +82,53 @@ class InitTests(unittest.TestCase):
             return "Indexed files per language: python=1\n"
         return patch.object(aidev, "run", side_effect=run), calls
 
+    def test_provider_failure_keeps_setting_receipts_for_remove(self):
+        import ownership
+        self.write("code.py", "x = 1\n")
+        with self.fake_build(fail="graphify")[0]:
+            with self.assertRaisesRegex(aidev.Problem, "test build failed"):
+                aidev.initialize(self.root)
+        self.assertTrue((self.root / ".aidev/ownership.json").exists())
+        plan = ownership.remove(self.root, dry_run=True)
+        self.assertIn(plan["status"], ("REMOVE_READY", "REMOVE_PARTIAL"))
+        self.assertEqual(ownership.remove(self.root)["status"], "REMOVED_WITH_PRESERVED")
+        self.assertFalse((self.root / ".codex/config.toml").exists())
+
+    def test_remove_keeps_serena_state_for_manual_identical_mcp(self):
+        import ownership
+        self.write("code.py", "x = 1\n")
+        sections = aidev.mcp_sections(self.bins)
+        manual = "\n".join(sections.values())
+        self.write(".codex/config.toml", manual)
+        with self.fake_build()[0]:
+            self.assertEqual(aidev.initialize(self.root)["status"], "LOCAL_READY")
+        result = ownership.remove(self.root)
+        self.assertEqual(result["status"], "REMOVED_WITH_PRESERVED")
+        self.assertEqual((self.root / ".codex/config.toml").read_text(), manual)
+        self.assertTrue((self.root / ".serena/project.yml").exists())
+        self.assertTrue((self.root / ".serena/cache").exists())
+
+    def test_init_remove_preserves_user_edits_and_is_repeatable(self):
+        import ownership
+        self.write("code.py", "x = 1\n")
+        self.write(".codex/config.toml", 'model = "user"\n')
+        with self.fake_build()[0]:
+            self.assertEqual(aidev.initialize(self.root)["status"], "LOCAL_READY")
+        self.write("AGENTS.md", (self.root / "AGENTS.md").read_text() + "\nUser note\n")
+        self.write("graphify-out/user.txt", "user")
+        before = snapshot(self.root)
+        plan = ownership.remove(self.root, dry_run=True)
+        self.assertEqual(plan["status"], "REMOVE_PARTIAL")
+        self.assertEqual(snapshot(self.root), before)
+        result = ownership.remove(self.root)
+        self.assertEqual(result["status"], "REMOVED_WITH_PRESERVED")
+        self.assertIn("User note", (self.root / "AGENTS.md").read_text())
+        self.assertNotIn(aidev.CODE_START, (self.root / "AGENTS.md").read_text())
+        self.assertEqual((self.root / ".codex/config.toml").read_text(), 'model = "user"\n')
+        self.assertTrue((self.root / "graphify-out/user.txt").exists())
+        self.assertTrue((self.root / ".aidev/ownership.json").exists())
+        self.assertEqual(ownership.remove(self.root)["status"], "REMOVED_WITH_PRESERVED")
+
     def test_dry_run_preserves_every_file(self):
         self.write("code.py", "x = 1\n")
         before = snapshot(self.root)
