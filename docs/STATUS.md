@@ -10,6 +10,8 @@
 
 公開前のローカル固定確認では、既存の Python 3.11.14 実体で同じ実装・テストの全151件を実行し、149件成功・Windows専用2件skipでした。前記の Python 3.13.12 と Terrain 隔離テストの結果は、候補manifestの内容一致で対象ファイルが変わっていないことを確認して引き継ぎました。候補SHAに対するCIは未実行です。
 
+公開した初回候補 `f8e2af108c4233394831ad8f50c63c6223c6030c` の [portability CI](https://github.com/tsutomu-n/aidev/actions/runs/36416933479) は Ubuntu 2構成が成功、Windows 2構成が失敗しました。両Windowsの失敗は、backupの相対パスを台帳へ渡す際にWindowsの区切り文字が残り、安全なPOSIX相対パス検査で拒否された同一原因です。台帳の検査条件は維持し、coreとTerrainのreceiptを作る4箇所で相対パスをPOSIX形式に正規化しました。修正後のローカルPython 3.11.14・3.13.12全suiteは各151件中149件成功・Windows専用2件skipです。初回候補の失敗と修正後候補のCIは別の結果として扱います。
+
 受領した `origin/main` の `7b3f383439b9ad129ad14374840bd6dd51cf924a` では `AGENTS.md` が空なのに、公開manifestは旧hashを記録しており不一致です。この候補worktreeは `dd724e9768c85a63514fbc7372b48ebcf3f586db` を基準とし、空ファイル化コミットを取り込んでいません。候補のmanifest更新は受領時不一致の解消と混同しません。
 
 基準は `origin/main` の `dd724e9768c85a63514fbc7372b48ebcf3f586db`。別worktreeで実装し、元worktreeの未commit `AGENTS.md` は変更していません。`aidev remove` / `aidev terrain remove` はownership台帳と現在状態を照合して証明済みの範囲を撤去し、曖昧な項目を保全します。`--force` はありません。通常導入版の更新、commit、push、merge、releaseは行っていません。

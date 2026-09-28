@@ -289,7 +289,7 @@ def backup_write(root, changes, run_id, previous=None, already_written=(), on_wr
             raise Problem(f"並行設定変更を保全しました: {root / name}")
         atomic(safe_path(root, name), value)
         if on_write is not None:
-            on_write(name, previous[name], value, str((backup / name).relative_to(root)) if previous[name] is not None else None)
+            on_write(name, previous[name], value, (backup / name).relative_to(root).as_posix() if previous[name] is not None else None)
 
 
 def snapshot_assets(root, run_id):
@@ -390,7 +390,7 @@ def initialize(root, dry_run=False, build_context=False, slug=None, refresh=Fals
         snapshot_assets(root, run_id)
         backup_write(root, changes, run_id, before_config, (barrier,), receipt)
         if barrier in changes and before_config[barrier] is not None:
-            receipt(barrier, before_config[barrier], changes[barrier], str((root / ".aidev/terrain/backups" / run_id / barrier).relative_to(root)))
+            receipt(barrier, before_config[barrier], changes[barrier], (root / ".aidev/terrain/backups" / run_id / barrier).relative_to(root).as_posix())
         ensure_ignored(root, [PACK, PACK_META, ".terrain/agent/meta-inputs.json", ".terrain/.meta/check"])
         after_inputs = {name: runtime.file_hash(root / name) if (root / name).is_file() else None for name in input_files(root) if name not in changes}
         if stable_inputs != after_inputs:

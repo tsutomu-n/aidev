@@ -570,9 +570,9 @@ def apply(root, changes, before, on_write=None):
             raise Problem(f"並行変更を検出しました: {root / relative}。backup: {backup}")
         atomic(root / relative, value)
         if on_write:
-            on_write(relative, before[relative], value, str((backup / relative).relative_to(root)) if before[relative] is not None else None)
+            on_write(relative, before[relative], value, (backup / relative).relative_to(root).as_posix() if before[relative] is not None else None)
     if barrier in changes and on_write and before[barrier] is not None:
-        on_write(barrier, before[barrier], changes[barrier], str((backup / barrier).relative_to(root)))
+        on_write(barrier, before[barrier], changes[barrier], (backup / barrier).relative_to(root).as_posix())
     ensure_ignored(root)
     return str(backup)
 
