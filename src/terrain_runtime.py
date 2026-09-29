@@ -231,7 +231,7 @@ def foundation_path():
     return safe_absolute(data_home() / "terrain/foundation.json")
 
 
-def load_runtime(root):
+def load_runtime(root, *, require_acp=False):
     path = foundation_path()
     if not path.is_file():
         raise Problem("Terrain runtime未登録: aidev terrain install --allow-download または setup --approve")
@@ -241,6 +241,8 @@ def load_runtime(root):
     if data.get("upstream_sha") != TERRAIN_UPSTREAM_SHA or data.get("patch_sha256") != patch_hash():
         raise Problem("Terrain patch identityが一致しません。setupで再検証してください")
     for name, version in (("terrain", TERRAIN_VERSION), ("codex_acp", CODEX_ACP_VERSION)):
+        if name == "codex_acp" and not require_acp:
+            continue  # Local pack/inspection/removal does not execute ACP.
         record = data.get(name)
         if name == "codex_acp" and record is None:
             continue

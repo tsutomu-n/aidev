@@ -84,7 +84,7 @@ Serena等の終了0でも部分失敗の出力を検出します。CRG wrapper�
 
 ## installerの契約
 
-現行installerは13ファイル（既存9ファイルとTerrain用2 modules・patch・操作文書）のhashからrelease識別子を作り、`$HOME/.local/share/aidev/releases` に配置します。このdirectoryは初回導入または旧版からの更新時に作成されます。`installation.json` に収録ファイルhashを記録し、完全なreleaseへUbuntuは入口symlink、WindowsはUTF-8のcmdランチャーをatomicに切り替えます。Windowsの保存先設定値は `%LOCALAPPDATA%\aidev` です。補助symlinkの更新を含む全操作が一括transactionという意味ではありません。
+`src/install.py` の `FILES` に列挙された配布ファイルのhashからrelease識別子を作り、`$HOME/.local/share/aidev/releases` に配置します。このdirectoryは初回導入または旧版からの更新時に作成されます。`installation.json` に収録ファイルhashを記録し、完全なreleaseへUbuntuは入口symlink、WindowsはUTF-8のcmdランチャーをatomicに切り替えます。Windowsの保存先設定値は `%LOCALAPPDATA%\aidev` です。補助symlinkの更新を含む全操作が一括transactionという意味ではありません。
 
 `--upgrade` は旧0.1.0の既知hash、または管理releaseのmanifestと実体が一致する場合に進みます。release manifestには実行Pythonの絶対パス・検証済み版・launcher形式も含み、Windows launcherはそのPythonをUTF-8 cmdから直接起動します。`py` / PATHへの実行時fallbackはありません。ロック取得後と公開直前にentryの種類・内容・link先を再照合し、初回は存在しない宛先への作成だけを許可します。更新は旧entryを専用退避先へrenameしてから、空の宛先へ公開します。競合時は上書きせず停止します。Unixの旧3ファイル配置は、退避releaseのmanifestが既知3hashと一致し、元ファイルも同じhashの通常ファイルである場合だけ管理リンクへ移行します。入口公開前に管理pathを検査し、元ファイルをrenameして保全した後もhashを照合します。途中中断後は同じ所有確認で残りの管理リンクを公開します。
 
@@ -115,3 +115,17 @@ Windowsの子プロセスはJob Objectへの所属確認後にproviderを起動�
 `aidev.py`はTerrain commandの場合だけ専用moduleをimportします。`terrain_runtime.py`がpin・patch identity・download/build・approval/hash・behavior smoke、`terrain_provider.py`がrepo-local registry・fingerprint・AGENTS・backup・生成gate・doctor・read toolsを担当します。generic plugin frameworkは導入していません。
 
 Terrain doctorは既存doctorと異なりprovider processを一切起動せず、保存runtime recordと現在のhashをPythonで検査します。生成処理は既存directory lock/process group/Job Objectを再利用し、Terrain起動時のHOME副作用を一時HOMEへ隔離します。入力はGitのnonignored列挙と実内容hash、出力はpack/context/meta hashで照合します。具体的なschema・CLI・migrationと制限は [/home/tn/projects/aidev/docs/TERRAIN.md](TERRAIN.md) を参照してください。
+
+## Repo-local remove と所有権
+
+`init` は書き込んだ設定単位を `.aidev/ownership.json` に記録します。file・managed block・JSON member・完全一致した生成treeを区別します。既存の同一MCP設定は所有物にしません。新規MCP sectionは開始・終了markerで囲みます。Terrain backup receiptにも変更前hashを保存します。
+
+`aidev remove --dry-run` と `aidev terrain remove --dry-run` は台帳・現在bytes・Git追跡状態だけで判定し、provider・Terrain・ACPを起動せず、release内のPython bytecodeも書き込みません。apply時はRepo lock下で再照合し、変更・削除対象の全file/treeの元bytes、台帳、予定操作を権限制限付き一時ディレクトリに退避して、安全な項目だけを差し引きます。退避先は `recovery_backup` で返し、自動削除しません。変更済みfile、曖昧な旧形式、リンク、追跡済みlocal生成物、未知childを含むtreeは保全します。追跡済み共有JSONは最後の管理memberを除去してもファイルを残します。`--force` はありません。台帳は未解決の所有項目がある限り残ります。machine-levelのreleaseやruntimeは操作しません。
+
+`.aidev/remove-progress.json` は復旧先の参照です。操作前に復旧先の `journal.json` へpendingを永続化し、変更したpathと台帳更新後の完了を記録します。強制終了後も元bytes・元台帳・未確定操作を辿れます。再実行は既存の参照を新しい復旧先に保全し、旧参照を外部への書込み先として使用しません。不正な進行記録やGit追跡済み台帳・進行記録は変更せず停止します。撤去中の台帳変更を各段階で照合し、検知後は上書きしません。未完了撤去があればinitを停止し、不正台帳はprovider起動・設定変更前に拒否します。退避容量不足は対象変更前の停止、途中I/O失敗は記録付きERRORです。OSによる一時領域の清掃・電源断時のfilesystem全体の耐久性・非協調writerの検査直後の変更まで保証するものではありません。
+
+台帳のentryはpath・kind・component・管理marker/JSON keyを既知のaidev管理範囲と照合し、backupも対象componentの保存先に限定します。再init前に管理ブロックが手動変更されていれば、その本文を上書きせず衝突として停止します。生成treeの再記録は前回所有内容との一致が必要で、後から加わったchildを所有物にしません。ローカル内容や未解決の所有項目が残る場合、Git除外用の管理ブロックも保全します。保全されたignoreや復旧用backupが残れば、連携部分を撤去しても `REMOVED_WITH_PRESERVED` になり得ます。協調lockは他プロセスの書込みを止める保証ではなく、削除直前の内容・種類の再照合で検知できた競合は停止します。
+
+### 現行実装と設計資料の差分
+
+基準SHAのcore ignoreは終端なしの `# aidev: local analysis`、Terrain ignoreは単純な行追記でした。これらの旧形式は削除範囲を一意に特定できないため、今回の再実行でも過去の書込みを遡って所有claimしません。新規に追加する範囲だけ開始・終了markerを付けます。既存の同一MCP sectionも現行 `plan()` が書き込まないため所有claimしません。Terrain runtimeのWindows制限は現行 `dispatch()` の入口にありましたが、Repo-localな `remove` はruntimeを使わないため、その分岐より先に処理します。

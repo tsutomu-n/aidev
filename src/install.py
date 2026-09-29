@@ -18,7 +18,7 @@ CHECKOUT_ROOT = Path(__file__).resolve().parent.parent
 SOURCE = CHECKOUT_ROOT
 TARGET = data_home()
 ENTRY = TARGET / "bin/aidev.cmd" if WINDOWS else Path.home() / ".local/bin/aidev"
-FILES = ("aidev.py", "provider_probe.py", "provider_build.py", "platform_support.py", "README.md", "USER_GUIDE.md", "TECHNICAL.md", "STATUS.md", "WINDOWS.md", "terrain_provider.py", "terrain_runtime.py", "terrain-0.9.5-aidev.patch", "TERRAIN.md", "context-qualification.json", "codex-acp-1.11.0-context.patch")
+FILES = ("aidev.py", "ownership.py", "provider_probe.py", "provider_build.py", "platform_support.py", "README.md", "USER_GUIDE.md", "TECHNICAL.md", "STATUS.md", "WINDOWS.md", "terrain_provider.py", "terrain_runtime.py", "terrain-0.9.5-aidev.patch", "TERRAIN.md", "context-qualification.json", "codex-acp-1.11.0-context.patch")
 SOURCE_BUNDLE_FILES = frozenset(name for name in FILES if name.endswith((".py", ".patch", ".json")))
 SOURCE_DOC_FILES = frozenset({"USER_GUIDE.md", "TECHNICAL.md", "STATUS.md", "WINDOWS.md", "TERRAIN.md"})
 

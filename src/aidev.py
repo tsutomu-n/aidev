@@ -21,6 +21,9 @@ import tempfile
 import time
 import tomllib
 
+# Even installed diagnostic/removal dry-runs must not create release caches.
+sys.dont_write_bytecode = True
+
 from platform_support import WINDOWS, child_process, data_home, directory_lock, is_link, stop_process
 
 VERSION = "0.3.0"
@@ -366,8 +369,21 @@ def mcp_sections(bins=None):
     return sections
 
 
-def add_lines(old, lines):
+def add_lines(old, lines, name=None, root=None):
     text = (old or b"").decode()
+    if name:
+        start = f"# aidev:core:{name}:start"
+        end = f"# aidev:core:{name}:end"
+        if start in text or end in text:
+            if text.count(start) != 1 or text.count(end) != 1 or text.index(start) > text.index(end):
+                raise Problem("aidev ignore管理markerが不正です")
+            old_block = text[text.index(start):text.index(end) + len(end)]
+            new_block = start + "\n# aidev: local analysis\n" + "\n".join(lines) + "\n" + end
+            if old_block != new_block and root is not None:
+                import ownership
+                if not ownership.block_matches_receipt(root, 'core', name, start, old_block.encode()):
+                    raise Problem("手動変更されたaidev ignore管理ブロックを保全しました")
+            return text.replace(old_block, new_block, 1).encode()
     # The final rule wins: earlier exclusions can be cancelled by a later '!'.
     block = "# aidev: local analysis\n" + "\n".join(lines) + "\n"
     marker = "# aidev: local analysis\n"
@@ -377,14 +393,26 @@ def add_lines(old, lines):
         prefix, *managed = text.split(marker)
         if all(part and all(line in lines for line in part.splitlines() if line) for part in managed):
             return (prefix + block).encode()
+    if name and marker not in text:
+        start = f"# aidev:core:{name}:start"
+        end = f"# aidev:core:{name}:end"
+        block = start + "\n" + block + end + "\n"
     return (text + ("\n" if text and not text.endswith("\n") else "") + "\n" + block).encode()
 
 
-def code_guidance(old):
+def code_guidance(old, root=None, name=None):
     text = (old or b"").decode("utf-8")
     if CODE_START in text or CODE_END in text:
         if text.count(CODE_START) != 1 or text.count(CODE_END) != 1 or text.index(CODE_START) > text.index(CODE_END):
             raise Problem("aidev AGENTS管理markerが不正です")
+        current = text[text.index(CODE_START):text.index(CODE_END) + len(CODE_END)].encode()
+        if current != CODE_GUIDANCE.encode():
+            import ownership
+            receipt = ownership.load(root) if root is not None else None
+            known = next((e for e in receipt['components']['core']['entries'].values()
+                          if e['kind'] == 'block' and e['path'] == name and e['start_marker'] == CODE_START), None) if receipt else None
+            if known is None or ownership.digest(current) != known['owned_block_sha256']:
+                raise Problem("手動変更されたaidev AGENTS管理ブロックを保全しました")
         return (text[:text.index(CODE_START)] + CODE_GUIDANCE + text[text.index(CODE_END) + len(CODE_END):]).encode()
     return (text + ("\n\n" if text else "") + CODE_GUIDANCE + "\n").encode()
 
@@ -446,7 +474,7 @@ def plan(root, bins, files):
             if any(existing.get(k) != wanted[k] for k in keys) or existing.get("enabled", True) is False or existing.get("cwd") or existing.get("url") or existing.get("disabled_tools"):
                 raise Problem(f"既存MCP設定と衝突: {root / '.codex/config.toml'} ({name})。上書きしていません。")
         else:
-            text += "\n# aidev: " + name + "\n" + section
+            text += "\n# aidev:mcp:" + name + ":start\n" + section + "# aidev:mcp:" + name + ":end\n"
     tomllib.loads(text)  # catches inline-table and duplicate-table conflicts
     stage(".codex/config.toml", text.encode())
 
@@ -466,10 +494,10 @@ def plan(root, bins, files):
     # Preserve that selection input too, even when AGENTS.md is selected.
     override = load("AGENTS.override.md")
     guidance_file = "AGENTS.override.md" if override and override.strip() else "AGENTS.md"
-    stage(guidance_file, code_guidance(load(guidance_file)))
+    stage(guidance_file, code_guidance(load(guidance_file), root, guidance_file))
     for relative, lines in [(".gitignore", GIT_EXCLUDES), (".graphifyignore", EXCLUDES), (".code-review-graphignore", EXCLUDES)]:
-        stage(relative, add_lines(load(relative), lines))
-    stage(".aidev/.gitignore", add_lines(load(".aidev/.gitignore"), ["*"]))
+        stage(relative, add_lines(load(relative), lines, relative, root))
+    stage(".aidev/.gitignore", add_lines(load(".aidev/.gitignore"), ["*"], ".aidev/.gitignore", root))
 
     langs = sorted({LANGUAGES[Path(f).suffix.lower()] for f in files if Path(f).suffix.lower() in LANGUAGES})
     if files and not langs:
@@ -513,7 +541,7 @@ def lock(root):
         raise Problem("このRepoで別のaidev initが実行中です") from None
 
 
-def apply(root, changes, before):
+def apply(root, changes, before, on_write=None):
     # Recheck all preflight inputs before the first write; preserve concurrent edits.
     for relative, old in before.items():
         if read(root, relative) != old:
@@ -526,6 +554,8 @@ def apply(root, changes, before):
     barrier = ".aidev/.gitignore"
     if barrier in changes:
         atomic(root / barrier, changes[barrier])
+        if on_write and before[barrier] is None:
+            on_write(barrier, None, changes[barrier], None)
     ensure_ignored(root, [".aidev/backups/aidev-check", ".aidev/logs/aidev-check"])
     backup = root / ".aidev/backups" / (time.strftime("%Y%m%dT%H%M%S") + "-" + str(time.time_ns()))
     for relative in changes:
@@ -542,6 +572,10 @@ def apply(root, changes, before):
         if read(root, relative) != before[relative]:
             raise Problem(f"並行変更を検出しました: {root / relative}。backup: {backup}")
         atomic(root / relative, value)
+        if on_write:
+            on_write(relative, before[relative], value, (backup / relative).relative_to(root).as_posix() if before[relative] is not None else None)
+    if barrier in changes and on_write and before[barrier] is not None:
+        on_write(barrier, before[barrier], changes[barrier], (backup / barrier).relative_to(root).as_posix())
     ensure_ignored(root)
     return str(backup)
 
@@ -688,6 +722,10 @@ def index_record(state, name):
 
 def initialize(root, dry_run=False, timeout=600):
     with lock(root):
+        import ownership
+        ownership.load(root)
+        if ownership.read_progress(root) is not None:
+            raise Problem("未完了の撤去記録があります。復旧記録を確認してremoveを再実行してください")
         bins = foundation(root)
         rules = source_rules(bins, root)
         files = sources(root, rules)
@@ -695,12 +733,22 @@ def initialize(root, dry_run=False, timeout=600):
         if dry_run:
             return {"status": "PLAN", "root": str(root), "files_to_change": [str(root / p) for p in changes], "source_files": len(files), "languages": langs, "writes": False}
         old_state = state_read(root)
-        backup = apply(root, changes, before)
+        before_state = read(root, ".aidev/state.json")
+        derived_existed = {name: (root / name).exists() for name in ("graphify-out", ".code-review-graph", ".serena/cache")}
+        derived_before = {name: ownership._tree(root, name) for name in derived_existed if derived_existed[name]}
+        def write_state(state):
+            raw = js(state).encode()
+            atomic(root / ".aidev/state.json", raw)
+            ownership.record_file(root, "core", ".aidev/state.json", before_state, raw)
+        backup = apply(root, changes, before, lambda name, old, new, saved: ownership.record_change(root, "core", name, old, new, saved))
+        if backup:
+            ownership.record_tree(root, "core", str(Path(backup).relative_to(root)).replace("\\", "/"), False, component="core.local")
+        before_logs = {name: read(root, f".aidev/logs/{name}.log") for name in PROVIDERS}
         print(f"設定: {len(changes)} ファイル更新。対象コード: {len(files)} ファイル。", flush=True)
         if not files:
             state = {"schema_version": 1, "root": str(root), "status": "WAITING_FOR_CODE", "codex_mcp": "UNVERIFIED"}
             if old_state != state:
-                atomic(root / ".aidev/state.json", js(state).encode())
+                write_state(state)
             return {**state, "backup": backup, "next": "Python/JavaScript/TypeScriptのコード追加後に aidev init を再実行してください。"}
         current = fingerprint(root, files)
         start_head = current_head(root)
@@ -719,7 +767,7 @@ def initialize(root, dry_run=False, timeout=600):
                  "index_metadata": saved_records}
         completed = {}
         source_hashes = {f: digest((root / f).read_bytes()) for f in files}
-        atomic(root / ".aidev/state.json", js(state).encode())
+        write_state(state)
         commands = [
             ("serena", [bins["serena"], "project", "index", str(root), "--log-level", "WARNING"]),
             ("graphify", [bins["graphify"], "extract", str(root), "--code-only", "--no-cluster", "--max-workers", "2"]),
@@ -743,27 +791,45 @@ def initialize(root, dry_run=False, timeout=600):
                 state["steps"][name] = "PASS"
                 completed[name] = utc_now()
             except Problem as exc:
+                log_bytes = read(root, f".aidev/logs/{name}.log")
+                if log_bytes is not None:
+                    ownership.record_file(root, "core", f".aidev/logs/{name}.log", before_logs[name], log_bytes, component="core.local")
                 state.update(status="FAILED", error=str(exc))
                 state["steps"][name] = "FAILED"
-                atomic(root / ".aidev/state.json", js(state).encode())
+                write_state(state)
                 raise
-            atomic(root / ".aidev/state.json", js(state).encode())
+            write_state(state)
+            log_bytes = read(root, f".aidev/logs/{name}.log")
+            if log_bytes is not None:
+                ownership.record_file(root, "core", f".aidev/logs/{name}.log", before_logs[name], log_bytes, component="core.local")
         result = artifacts(root, langs)
         if not result or not result["graphify_nodes"] or not result["crg_nodes"] or not result["serena_cache"]["ready"]:
             state.update(status="FAILED", error="解析ノードなし")
-            atomic(root / ".aidev/state.json", js(state).encode())
+            write_state(state)
             raise Problem("索引のノードまたはSerenaキャッシュが不完全です。言語・ignore・解析ログを確認してください。")
         # Serena may canonically rewrite its own config; record only after success.
         after_files = sources(root, rules)
         if (files != after_files or current_head(root) != start_head
                 or any(digest((root / f).read_bytes()) != source_hashes[f] for f in files)):
             state.update(status="FAILED", error="処理中のコード変更")
-            atomic(root / ".aidev/state.json", js(state).encode())
+            write_state(state)
             raise Problem("処理中に対象コードが増減しました。再実行してください。")
         final_fingerprint = fingerprint(root, after_files)
         state.update(status="LOCAL_READY", fingerprint=final_fingerprint, artifacts=result,
                      index_metadata=index_metadata(root, final_fingerprint, langs, result, completed))
-        atomic(root / ".aidev/state.json", js(state).encode())
+        write_state(state)
+        for name, existed in derived_existed.items():
+            if not existed or ownership.recorded(root, "core", "tree", name):
+                try:
+                    ownership.record_tree(root, "core", name, False, component="core." + ("serena" if name.startswith(".serena") else "graphify" if name == "graphify-out" else "crg"), before_identity=derived_before.get(name))
+                except ownership.OwnershipError:
+                    pass  # Unsafe generated trees remain unclaimed.
+        for name in (".serena/project.yml", ".serena/runtime/serena_config.yml"):
+            if ownership.recorded(root, "core", "file", name):
+                old = before.get(name)
+                current_bytes = read(root, name)
+                if current_bytes is not None:
+                    ownership.record_file(root, "core", name, old, current_bytes, component="core.serena")
         return {**state, "backup": backup, "next": NEXT}
 
 
@@ -868,6 +934,9 @@ def main(argv=None):
     init = sub.add_parser("init", help="現在のRepoの設定・初期化・索引構築")
     init.add_argument("--dry-run", action="store_true", help="変更せず事前確認と変更予定を表示")
     init.add_argument("--timeout", type=int, default=600, help="各providerの上限秒数（既定600）")
+    remove_parser = sub.add_parser("remove", help="証明済みのRepo-local所有物を安全に撤去")
+    remove_parser.add_argument("--dry-run", action="store_true")
+    remove_parser.add_argument("--json", action="store_true")
     check = sub.add_parser("doctor", help="書き換えずに設定・索引・鮮度を診断")
     check.add_argument("--json", action="store_true", help="JSONで表示")
     setup = sub.add_parser("setup", help="指定した既存provider環境の検査・明示承認登録（自動導入なし）")
@@ -890,6 +959,24 @@ def main(argv=None):
             print(js(result), end="")
             return 0
         root = repo_root(Path.cwd())
+        if args.command == "remove":
+            import ownership
+            if args.dry_run:
+                result = ownership.remove(root, dry_run=True)
+            else:
+                with lock(root):
+                    result = ownership.remove(root)
+            if args.json or args.dry_run:
+                print(js(result), end="")
+            else:
+                print(f"{result['status']}: {root}")
+                if result.get("error"):
+                    print(result["error"])
+                for item in result.get("actions", []):
+                    print(f"  {item['action']}: {item['path']} ({item['reason']})")
+                if result.get("recovery_backup"):
+                    print(f"recovery backup: {result['recovery_backup']}")
+            return 2 if result["status"] == "ERROR" else 1 if result["status"] in ("REMOVE_PARTIAL", "REMOVED_WITH_PRESERVED") else 0
         if args.command == "init":
             if args.timeout < 1:
                 raise Problem("timeoutには正の秒数を指定してください")

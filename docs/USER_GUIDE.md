@@ -180,3 +180,15 @@ python3 /home/tn/projects/aidev/src/install.py
 このソースの版表示は `aidev 0.3.0` です。既にaidevを導入済みで、確認したソースへ更新する場合は `python3 /home/tn/projects/aidev/src/install.py --upgrade` を使います。管理外のコマンドや利用者が変更したファイルにより停止した場合は、その配置を保全して原因を確認します。Gitでソースを更新しただけでは、通常利用するコマンドは更新されません。
 
 詳しい設定と保存先は [技術資料](TECHNICAL.md)、Windowsの導入・受入は [Windows向け手順](WINDOWS.md)、任意機能のTerrainは [Terrainの説明](TERRAIN.md)、この環境で実施した受入の範囲は [状態と検証記録](STATUS.md) を参照してください。
+
+## Repo-localの設定を撤去する
+
+対象Gitリポジトリのルートで `aidev remove --dry-run` を実行し、`SAFE_*` と `PRESERVE_*` の一覧を確認します。続けて `aidev remove` を実行すると、証明済みのcoreとTerrainの設定・生成物だけを撤去します。Terrainだけなら `aidev terrain remove --dry-run` → `aidev terrain remove` です。`--json` でも結果を取得できます。
+
+`REMOVE_READY` / `REMOVED` / `NOT_INSTALLED` は終了コード0、`REMOVE_PARTIAL` / `REMOVED_WITH_PRESERVED` は1、`ERROR` は2です。旧版のRepoなどで所有権を証明できないファイルは残ります。保全項目は一覧で確認し、必要なら利用者が別途判断してください。`remove` はGitの追跡・履歴やmachine-levelのaidev/provider/Terrain runtimeを変更しません。追跡済みの共有文書・JSON設定は管理部分だけを除去してファイルを残します。追跡済みの生成物は保全し、台帳自身が追跡済みなら停止します。
+
+実撤去の前に、変更・削除対象のファイルと生成treeを権限700の復旧ディレクトリへ退避します。結果の `recovery_backup` に場所を返し、変更前台帳と操作記録も残します。途中終了時は `.aidev/remove-progress.json` から復旧先を辿れます。復旧先の `journal.json` の `completed`・`pending`・`changed_paths` と `before/` の元bytesを確認してください。`pending` は実行途中で、反映済みかどうかを現物と照合する必要があります。再撤去は前回の参照を `previous-progress.json` に保存し、利用者が変更・再作成した内容を保全します。未完了記録がある間は再initを停止します。復旧は利用者の現行変更を確認して必要なファイルだけ戻し、ディレクトリ全体を上書きしないでください。
+
+退避はaidevから自動削除しませんが、既定の一時ディレクトリはOSが清掃することがあります。長期保管が必要なら復旧先を別途保管してください。撤去対象と同程度の退避容量が必要です。退避に失敗した場合は対象の変更前に停止します。処理中の失敗では `ERROR` と `writes`、完了済み・処理中の項目、復旧先を `--json` で確認します。
+
+利用中のCodex・MCP・索引作成プロセスを終了してから実撤去してください。未知の生成child、変更済みpack、復旧用backup等が残る場合は、Git除外規則も保全します。`REMOVED_WITH_PRESERVED` の一覧では、撤去済みの連携と保全した情報・除外規則を別々に確認してください。再initで手動変更済みの管理ブロックが見つかると、内容を保全して停止します。

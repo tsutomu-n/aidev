@@ -24,9 +24,9 @@ ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / 'docs/WINDOWS_HANDOFF_MANIFEST.json'
 FILES = (
     'AGENTS.md', '.gitignore', '.github/workflows/tests.yml',
-    'src/aidev.py', 'src/install.py', 'src/platform_support.py', 'src/provider_probe.py', 'src/provider_build.py',
+    'src/aidev.py', 'src/ownership.py', 'src/install.py', 'src/platform_support.py', 'src/provider_probe.py', 'src/provider_build.py',
     'README.md', 'docs/STATUS.md', 'docs/TECHNICAL.md', 'docs/USER_GUIDE.md', 'docs/WINDOWS.md', 'docs/WINDOWS_HANDOFF.md',
-    'tests/test_aidev.py', 'tests/test_portability.py', 'tools/windows_handoff.py',
+    'tests/test_aidev.py', 'tests/test_remove.py', 'tests/test_remove_safety.py', 'tests/test_state_safety.py', 'tests/test_portability.py', 'tools/windows_handoff.py',
     'src/terrain_runtime.py', 'src/terrain_provider.py', 'src/terrain-0.9.5-aidev.patch', 'docs/TERRAIN.md',
     'tests/test_terrain.py', '.github/workflows/terrain.yml', 'tools/terrain_ci.py',
     'src/context-qualification.json', 'tests/test_context_contract.py', 'tools/context_supervisor.py',
